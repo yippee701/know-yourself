@@ -21,6 +21,7 @@ export default function ChatInput({ onSend, isLoading }) {
         placeholder="输入你的回答..."
         onSubmit={handleSubmit}
         loading={isLoading}
+        allowSpeech
         style={{
           background: 'rgba(26, 26, 58, 0.8)',
           border: '1px solid rgba(139, 92, 246, 0.2)',
