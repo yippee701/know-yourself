@@ -57,11 +57,16 @@ const userBubbleProps = {
 
 export default function MessageList({ messages }) {
   const messagesEndRef = useRef(null);
+  const containerRef = useRef(null);
 
-  // 自动滚动到底部
+  // 获取最后一条消息的内容，用于触发滚动
+  const lastMessage = messages[messages.length - 1];
+  const lastContent = lastMessage?.content || '';
+
+  // 自动滚动到底部（消息变化或内容更新时）
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages.length, lastContent]);
 
   return (
     <div className="pt-1 space-y-2">

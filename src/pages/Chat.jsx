@@ -68,16 +68,27 @@ export default function Chat() {
 
       {/* 顶部状态栏 */}
       <header 
-        className="absolute top-0 left-0 right-0 h-11 px-4 flex justify-between items-center z-50"
+        className="absolute top-0 left-0 right-0 h-9 px-3 flex justify-between items-center z-50"
         style={{
           background: 'rgba(245, 241, 237, 0.7)',
           backdropFilter: 'blur(12px)',
           borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
         }}
       >
-        <ParticleIcon />
+        <div className="flex items-center gap-2">
+          <a 
+            href="/know-yourself/"
+            className="flex items-center justify-center w-6 h-6 rounded-full hover:bg-black/5 transition-colors"
+            style={{ color: '#8C8C8C' }}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1h3a1 1 0 001-1V10" />
+            </svg>
+          </a>
+          <ParticleIcon />
+        </div>
         <span 
-          className="text-xs tracking-wide"
+          className="text-[10px] tracking-wide"
           style={{ 
             fontFamily: 'monospace',
             color: '#8C8C8C',
@@ -89,7 +100,7 @@ export default function Chat() {
       </header>
 
       {/* 聊天内容区 */}
-      <div className="relative z-10 flex-1 overflow-y-auto pt-14 pb-28 px-4">
+      <div className="relative z-10 flex-1 overflow-y-auto pt-12 pb-28 px-4">
         <div className="max-w-lg mx-auto">
           {!hasStarted ? (
             <WelcomeScreen onStart={handleStart} isLoading={isLoading} />
