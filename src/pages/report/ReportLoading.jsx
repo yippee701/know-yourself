@@ -178,25 +178,6 @@ export default function ReportLoading() {
         </p>
       </div>
 
-      {/* 底部关键帧卡片 */}
-      <div className="absolute bottom-6 left-0 right-0 px-4 flex gap-2 z-20">
-        <KeyframeCard 
-          color="#94A89A"
-          title="Keyframe 1-2s"
-          content="粒子光圈向中心坍缩，直径缩至200px，密度增加，光效增强。"
-        />
-        <KeyframeCard 
-          color="#9FB6C3"
-          title="Keyframe 2-4s"
-          content="光圈向两侧展开，变形为长方形书封(240x320)，保持流动。"
-        />
-        <KeyframeCard 
-          color="#D4A373"
-          title="Keyframe 4-6s"
-          content="轮廓成型，粒子凝固为纸质纹理，底色过渡至纸质微亮色。"
-        />
-      </div>
-
       {/* 返回首页按钮 */}
       <Link 
         to="/"
