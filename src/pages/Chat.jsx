@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 // 组件
 import MessageList from '../components/MessageList';
 import WelcomeScreen from '../components/WelcomeScreen';
 import ChatInput from '../components/ChatInput';
 
-// Hook
+// Hook & Context
 import { useChat } from '../hooks/useChat';
+import { useReport } from '../contexts/ReportContext';
 
 // 粒子图标组件
 function ParticleIcon() {
@@ -46,7 +48,28 @@ function TextureOverlay() {
 
 export default function Chat() {
   const [hasStarted, setHasStarted] = useState(false);
-  const { messages, isLoading, sendUserMessage } = useChat();
+  const navigate = useNavigate();
+  const { startReport, updateReportContent, completeReport } = useReport();
+
+  // 报告检测回调
+  const handleReportStart = useCallback(() => {
+    startReport();
+    navigate('/report-loading');
+  }, [startReport, navigate]);
+
+  const handleReportUpdate = useCallback((content) => {
+    updateReportContent(content);
+  }, [updateReportContent]);
+
+  const handleReportComplete = useCallback(() => {
+    completeReport();
+  }, [completeReport]);
+
+  const { messages, isLoading, sendUserMessage } = useChat({
+    onReportStart: handleReportStart,
+    onReportUpdate: handleReportUpdate,
+    onReportComplete: handleReportComplete,
+  });
   
   // 计算当前问题进度（基于 AI 回复数量）
   const aiMessageCount = messages.filter(m => m.role === 'assistant').length;
@@ -76,15 +99,15 @@ export default function Chat() {
         }}
       >
         <div className="flex items-center gap-2">
-          <a 
-            href="/know-yourself/"
+          <Link 
+            to="/"
             className="flex items-center justify-center w-6 h-6 rounded-full hover:bg-black/5 transition-colors"
             style={{ color: '#8C8C8C' }}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1h3a1 1 0 001-1V10" />
             </svg>
-          </a>
+          </Link>
           <ParticleIcon />
         </div>
         <span 

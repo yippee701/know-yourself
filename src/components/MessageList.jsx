@@ -1,11 +1,19 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Bubble } from '@ant-design/x';
 import XMarkdown from '@ant-design/x-markdown';
 
-/**
- * 渲染 Markdown 内容
- * @see https://x.ant.design/components/bubble#bubble-demo-markdown
- */
+// 节流函数
+function throttle(fn, delay) {
+  let lastCall = 0;
+  return (...args) => {
+    const now = Date.now();
+    if (now - lastCall >= delay) {
+      lastCall = now;
+      fn(...args);
+    }
+  };
+}
+
 const renderMarkdown = (content) => (
   <XMarkdown
     style={{
@@ -57,16 +65,24 @@ const userBubbleProps = {
 
 export default function MessageList({ messages }) {
   const messagesEndRef = useRef(null);
-  const containerRef = useRef(null);
 
-  // 获取最后一条消息的内容，用于触发滚动
-  const lastMessage = messages[messages.length - 1];
-  const lastContent = lastMessage?.content || '';
+  // 滚动到底部
+  const scrollToBottom = useCallback((instant = false) => {
+    messagesEndRef.current?.scrollIntoView({ 
+      behavior: instant ? 'instant' : 'smooth' 
+    });
+  }, []);
 
-  // 自动滚动到底部（消息变化或内容更新时）
+  // 节流滚动（打字时用，每 150ms 最多触发一次）
+  const throttledScroll = useCallback(
+    throttle(() => scrollToBottom(true), 150),
+    [scrollToBottom]
+  );
+
+  // 消息数量变化时滚动
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length, lastContent]);
+    scrollToBottom();
+  }, [messages.length, scrollToBottom]);
 
   return (
     <div className="pt-1 space-y-2">
@@ -85,7 +101,6 @@ export default function MessageList({ messages }) {
           );
         }
 
-        // AI 消息：流式输出时用打字机效果，完成后渲染 Markdown
         return (
           <Bubble
             key={msg.id || index}
@@ -93,7 +108,7 @@ export default function MessageList({ messages }) {
             loading={isLoading}
             streaming={isStreaming}
             typing={{ effect: 'typing', step: 2, interval: 30 }}
-            // contentRender={isStreaming ? undefined : renderMarkdown}
+            onTyping={throttledScroll}
             {...aiBubbleBaseProps}
           />
         );

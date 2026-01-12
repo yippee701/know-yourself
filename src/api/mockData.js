@@ -47,7 +47,7 @@ const MOCK_RESPONSES = [
 ];
 
 // 最终报告模板（mock）
-const MOCK_FINAL_REPORT = `# 个人天赋使用说明书
+const MOCK_FINAL_REPORT = `[Report]# 个人天赋使用说明书
 
 ---
 
