@@ -51,6 +51,9 @@ const userBubbleProps = {
       borderRadius: '16px',
       borderTopRightRadius: '4px',
       padding: '8px 12px',
+      wordBreak: 'normal',
+      overflowWrap: 'break-word',
+      whiteSpace: 'pre-wrap',
     },
   },
 };

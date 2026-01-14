@@ -9,7 +9,8 @@ import ChatInput from '../components/ChatInput';
 // Hook & Context
 import { useChat } from '../hooks/useChat';
 import { useReport } from '../contexts/ReportContext';
-import { CHAT_MODES, getWelcomeMessage } from '../api/chat';
+import { getWelcomeMessage } from '../api/chat';
+import { getModeFromSearchParams } from '../constants/modes';
 
 // 粒子图标组件
 function ParticleIcon() {
@@ -54,12 +55,7 @@ export default function Chat() {
   const { startReport, updateReportContent, completeReport } = useReport();
 
   // 根据 URL 参数确定聊天模式
-  const chatMode = useMemo(() => {
-    const modeParam = searchParams.get('mode');
-    return modeParam === 'understand-others' 
-      ? CHAT_MODES.UNDERSTAND_OTHERS 
-      : CHAT_MODES.DISCOVER_SELF;
-  }, [searchParams]);
+  const chatMode = useMemo(() => getModeFromSearchParams(searchParams), [searchParams]);
 
   // 获取对应模式的欢迎消息
   const welcomeMessage = useMemo(() => getWelcomeMessage(chatMode), [chatMode]);
@@ -67,7 +63,7 @@ export default function Chat() {
   // 报告检测回调
   const handleReportStart = useCallback(() => {
     startReport();
-    navigate('/report-loading');
+    navigate(`/report-loading?mode=${chatMode}`);
   }, [startReport, navigate]);
 
   const handleReportUpdate = useCallback((content) => {

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState, useMemo } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useReport } from '../../contexts/ReportContext';
+import { getModeFromSearchParams } from '../../constants/modes';
 
 // 环境光效果
 function AmbientLight() {
@@ -142,12 +143,16 @@ function LoadingDots() {
 
 export default function ReportLoading() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { isComplete, content } = useReport();
+  
+  // 从 URL 参数获取模式
+  const mode = useMemo(() => getModeFromSearchParams(searchParams), [searchParams]);
 
   // 报告生成完成后跳转到结果页
   useEffect(() => {
     if (isComplete && content) {
-      navigate('/report-result');
+      navigate(`/report-result?mode=${mode}`);
     }
   }, [isComplete, content, navigate]);
 

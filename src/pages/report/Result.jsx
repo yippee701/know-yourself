@@ -1,10 +1,10 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useMemo } from 'react';
 import XMarkdown from '@ant-design/x-markdown';
 import Bmob from 'hydrogen-js-sdk';
 import { useReport } from '../../contexts/ReportContext';
 import { useUser, getCurrentUsername } from '../../hooks/useUser';
-import { getModeLabel, getDefaultMode } from '../../constants/modes';
+import { getModeLabel, getModeFromSearchParams } from '../../constants/modes';
 
 // ========== 子组件 ==========
 
@@ -199,7 +199,9 @@ export default function Result() {
   const { content, isComplete } = useReport();
   const { isLoggedIn, isLoading: userLoading } = useUser();
   const username = getCurrentUsername() || '探索者';
-  const mode = searchParams.get('mode') || getDefaultMode();
+  
+  // 从 URL 参数获取模式
+  const mode = useMemo(() => getModeFromSearchParams(searchParams), [searchParams]);
   const hasSavedRef = useRef(false); // 防止重复保存
 
   // 跳转到登录页（带返回地址）

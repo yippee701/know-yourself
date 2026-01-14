@@ -245,8 +245,8 @@ async function handleStreamResponse(response, onStream) {
 export async function sendMessage(messages, onStream = null, mode = CHAT_MODES.DISCOVER_SELF) {
   // Mock 模式
   if (IS_MOCK_MODE) {
-    console.log('[Mock Mode] 使用模拟数据，未调用真实 API');
-    return mockSendMessage(messages, onStream);
+    console.log(`[Mock Mode] 使用模拟数据 (${mode})，未调用真实 API`);
+    return mockSendMessage(messages, onStream, mode);
   }
 
   try {
@@ -267,12 +267,16 @@ export async function sendMessage(messages, onStream = null, mode = CHAT_MODES.D
 
 /**
  * 发送消息并使用打字机效果显示（备用方案）
+ * @param {Array} messages - 对话历史
+ * @param {Function} onUpdate - 更新回调
+ * @param {number} typingSpeed - 打字速度
+ * @param {string} mode - 聊天模式
  */
-export async function sendMessageWithTypewriter(messages, onUpdate, typingSpeed = 25) {
+export async function sendMessageWithTypewriter(messages, onUpdate, typingSpeed = 25, mode = CHAT_MODES.DISCOVER_SELF) {
   // Mock 模式
   if (IS_MOCK_MODE) {
-    console.log('[Mock Mode] 使用模拟数据，未调用真实 API');
-    return mockSendMessage(messages, onUpdate);
+    console.log(`[Mock Mode] 使用模拟数据 (${mode})，未调用真实 API`);
+    return mockSendMessage(messages, onUpdate, mode);
   }
 
   try {

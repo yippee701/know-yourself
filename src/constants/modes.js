@@ -2,7 +2,7 @@
  * 对话模式枚举
  */
 export const CHAT_MODES = {
-  KNOW_YOURSELF: 'know-yourself',
+  DISCOVER_SELF: 'discover-self',
   UNDERSTAND_OTHERS: 'understand-others',
   // 后续可继续添加更多模式
   // CAREER_PLANNING: 'career-planning',
@@ -13,7 +13,7 @@ export const CHAT_MODES = {
  * 模式配置信息
  */
 export const MODE_CONFIG = {
-  [CHAT_MODES.KNOW_YOURSELF]: {
+  [CHAT_MODES.DISCOVER_SELF]: {
     label: '发掘自己',
     description: '深入了解自己的内心世界',
   },
@@ -37,7 +37,7 @@ export function getModeLabel(mode) {
  * @returns {string} 默认模式
  */
 export function getDefaultMode() {
-  return CHAT_MODES.KNOW_YOURSELF;
+  return CHAT_MODES.DISCOVER_SELF;
 }
 
 /**
@@ -47,4 +47,16 @@ export function getDefaultMode() {
  */
 export function isValidMode(mode) {
   return Object.values(CHAT_MODES).includes(mode);
+}
+
+/**
+ * 从 URL 参数中获取模式
+ * @param {URLSearchParams} searchParams - URL 搜索参数对象
+ * @returns {string} 对话模式
+ */
+export function getModeFromSearchParams(searchParams) {
+  const modeParam = searchParams.get('mode');
+  return modeParam === CHAT_MODES.UNDERSTAND_OTHERS 
+    ? CHAT_MODES.UNDERSTAND_OTHERS 
+    : CHAT_MODES.DISCOVER_SELF;
 }
