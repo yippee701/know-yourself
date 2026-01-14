@@ -296,7 +296,7 @@ export default function Result() {
             letterSpacing: '0.5px',
           }}
         >
-          {username}的 Inner Book
+          {generateReportTitle(mode)}
         </h1>
         <Link 
           to="/profile"
