@@ -4,7 +4,7 @@ import XMarkdown from '@ant-design/x-markdown';
 import Bmob from 'hydrogen-js-sdk';
 import { useReport } from '../../contexts/ReportContext';
 import { useUser } from '../../hooks/useUser';
-import { getCurrentUsername } from '../../utils/user';
+import { getCurrentUsername, isLoggedIn } from '../../utils/user';
 import { generateReportTitle } from '../../utils/chat';
 import { getModeFromSearchParams } from '../../constants/modes';
 
@@ -168,7 +168,6 @@ export default function Result() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { content, isComplete, isFromHistory } = useReport();
-  const { isLoggedIn, isLoading: userLoading } = useUser();
   const username = getCurrentUsername() || '探索者';
   
   // 从 URL 参数获取模式
@@ -268,7 +267,7 @@ export default function Result() {
       </div>
 
       {/* 未登录蒙层 */}
-      {!userLoading && !isLoggedIn && (
+      {!isLoggedIn && (
         <LoginOverlay 
           onLogin={handleGoToLogin} 
           registerUrl={`/register?returnUrl=${encodeURIComponent(`/report-result?mode=${mode}`)}`}
