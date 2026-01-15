@@ -8,13 +8,14 @@ const TYPEWRITER_SPEED = 15;
  * 聊天逻辑 Hook - 管理消息状态和 API 调用
  * @param {Object} options - 配置选项
  * @param {string} options.mode - 聊天模式：'discover-self' | 'understand-others'
+ * @param {Array} options.initialMessages - 初始消息（用于恢复对话）
  * @param {Function} options.onReportStart - 检测到 [Report] 开头时的回调
  * @param {Function} options.onReportUpdate - 报告内容更新时的回调
  * @param {Function} options.onReportComplete - 报告生成完成时的回调
  */
 export function useChat(options = {}) {
-  const { mode = CHAT_MODES.DISCOVER_SELF, onReportStart, onReportUpdate, onReportComplete } = options;
-  const [messages, setMessages] = useState([]);
+  const { mode = CHAT_MODES.DISCOVER_SELF, initialMessages = [], onReportStart, onReportUpdate, onReportComplete } = options;
+  const [messages, setMessages] = useState(initialMessages);
   const [isLoading, setIsLoading] = useState(false);
   const reportStartedRef = useRef(false);
   
@@ -189,11 +190,17 @@ export function useChat(options = {}) {
     setMessages([]);
   }, []);
 
+  // 设置消息（用于恢复对话）
+  const restoreMessages = useCallback((msgs) => {
+    setMessages(msgs || []);
+  }, []);
+
   return {
     messages,
     isLoading,
     sendUserMessage,
     clearMessages,
+    restoreMessages,
   };
 }
 

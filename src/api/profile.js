@@ -3,7 +3,7 @@
  */
 
 import Bmob from 'hydrogen-js-sdk';
-import { getCurrentUsername } from '../hooks/useUser';
+import { getCurrentUsername } from '../utils/user';
 
 // 是否使用 Mock 数据
 const IS_MOCK_MODE = true;

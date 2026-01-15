@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 // 组件
@@ -52,23 +52,60 @@ function BackgroundGlow() {
   );
 }
 
+// localStorage key（与 ReportContext 保持一致）
+const LOCAL_REPORTS_KEY = 'pendingReports';
+
+// 直接从 localStorage 获取未完成的报告
+function getLocalPendingReport(mode) {
+  try {
+    const localReports = JSON.parse(localStorage.getItem(LOCAL_REPORTS_KEY) || '[]');
+    const pendingReport = localReports.find(
+      r => r.mode === mode && r.status === 'generating'
+    );
+    console.log('检查本地报告, mode:', mode, '找到:', pendingReport?.title || '无');
+    return pendingReport || null;
+  } catch (err) {
+    console.error('获取本地报告失败:', err);
+    return null;
+  }
+}
+
 export default function Chat() {
-  const [hasStarted, setHasStarted] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { startReport, updateReportContent, completeReport } = useReport();
+  
+  // 根据 URL 参数确定聊天模式（提前计算，不使用 useMemo）
+  const chatMode = getModeFromSearchParams(searchParams);
 
-  // 根据 URL 参数确定聊天模式
-  const chatMode = useMemo(() => getModeFromSearchParams(searchParams), [searchParams]);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [pendingReport, setPendingReport] = useState(null);
+  
+  // 组件挂载时检查是否有未完成的报告
+  useEffect(() => {
+    const pending = getLocalPendingReport(chatMode);
+    if (pending && pending.messages?.length > 0) {
+      console.log('发现未完成的对话:', pending.title, '消息数:', pending.messages.length);
+      setPendingReport(pending);
+    }
+  }, [chatMode]);
+  
+  const { 
+    startReport, 
+    updateReportContent, 
+    completeReport, 
+    createReport,
+    updateMessages,
+    resumeReport,
+  } = useReport();
 
   // 获取对应模式的欢迎消息
-  const welcomeMessage = useMemo(() => getWelcomeMessage(chatMode), [chatMode]);
+  const welcomeMessage = getWelcomeMessage(chatMode);
 
   // 报告检测回调
   const handleReportStart = useCallback(() => {
     startReport();
     navigate(`/report-loading?mode=${chatMode}`);
-  }, [startReport, navigate]);
+  }, [startReport, navigate, chatMode]);
 
   const handleReportUpdate = useCallback((content) => {
     updateReportContent(content);
@@ -78,7 +115,7 @@ export default function Chat() {
     completeReport();
   }, [completeReport]);
 
-  const { messages, isLoading, sendUserMessage } = useChat({
+  const { messages, isLoading, sendUserMessage, restoreMessages } = useChat({
     mode: chatMode,
     onReportStart: handleReportStart,
     onReportUpdate: handleReportUpdate,
@@ -89,10 +126,41 @@ export default function Chat() {
   const aiMessageCount = messages.filter(m => m.role === 'assistant').length;
   const progress = Math.min(aiMessageCount, 10);
 
+  // 对话记录变化时同步到 ReportContext
+  useEffect(() => {
+    if (hasStarted && messages.length > 0) {
+      updateMessages(messages);
+    }
+  }, [hasStarted, messages, updateMessages]);
+
+  // 恢复上次未完成的对话
+  const handleResume = useCallback(() => {
+    if (pendingReport) {
+      resumeReport(pendingReport);
+      restoreMessages(pendingReport.messages);
+      setHasStarted(true);
+      setPendingReport(null);
+    }
+  }, [pendingReport, resumeReport, restoreMessages]);
+
+  // 开始新对话（放弃上次的）
+  const handleStartNew = useCallback(async () => {
+    setPendingReport(null);
+    setHasStarted(true);
+    // 先创建报告记录
+    await createReport(chatMode);
+    // 然后发送第一条消息
+    await sendUserMessage('你好，我准备好了，请开始吧。');
+  }, [chatMode, createReport, sendUserMessage]);
+
   // 开始对话
   const handleStart = async () => {
-    setHasStarted(true);
-    await sendUserMessage('你好，我准备好了，请开始吧。');
+    // 如果有未完成的报告，先恢复
+    if (pendingReport) {
+      handleResume();
+    } else {
+      await handleStartNew();
+    }
   };
 
   return (
@@ -132,7 +200,13 @@ export default function Chat() {
       <div className="flex-1 overflow-y-auto px-5 pb-32 relative z-10">
         <div className="max-w-lg mx-auto">
           {!hasStarted ? (
-            <WelcomeScreen onStart={handleStart} welcomeMessage={welcomeMessage} />
+            <WelcomeScreen 
+              onStart={handleStart} 
+              onResume={handleResume}
+              onStartNew={handleStartNew}
+              hasPendingReport={!!pendingReport}
+              welcomeMessage={welcomeMessage} 
+            />
           ) : (
             <MessageList messages={messages} />
           )}
