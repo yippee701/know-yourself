@@ -223,7 +223,7 @@ export default function LoginPage() {
   }, [canSubmitPassword, loading, username, password, navigate]);
 
   return (
-    <div className="min-h-screen w-full bg-white relative overflow-hidden flex flex-col">
+    <div className="h-screen-safe w-full bg-white relative overflow-hidden flex flex-col">
       <BackgroundDecoration />
       
       {/* 顶部返回 */}

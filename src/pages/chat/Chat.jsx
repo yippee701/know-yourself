@@ -164,7 +164,7 @@ export default function Chat() {
   };
 
   return (
-    <div className="h-screen w-full bg-white flex flex-col overflow-hidden max-w-md mx-auto relative">
+    <div className="h-screen-safe w-full bg-white flex flex-col overflow-hidden max-w-md mx-auto relative">
       {/* 背景装饰光晕 */}
       <BackgroundGlow />
 

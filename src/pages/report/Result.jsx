@@ -222,14 +222,14 @@ export default function Result() {
   // 没有内容时显示加载
   if (!content) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="h-screen-safe flex items-center justify-center bg-white">
         <p style={{ color: '#6B7280' }}>加载中...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen w-full bg-white flex flex-col overflow-hidden relative">
+    <div className="h-screen-safe w-full bg-white flex flex-col overflow-hidden relative">
       {/* 背景装饰光晕 */}
       <BackgroundGlow />
 

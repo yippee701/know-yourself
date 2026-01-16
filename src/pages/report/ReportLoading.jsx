@@ -132,7 +132,7 @@ export default function ReportLoading() {
   }, [isComplete, content, navigate]);
 
   return (
-    <div className="min-h-screen w-full bg-white flex flex-col overflow-hidden relative">
+    <div className="h-screen-safe w-full bg-white flex flex-col overflow-hidden relative">
       {/* 背景装饰光晕 */}
       <BackgroundGlow />
 

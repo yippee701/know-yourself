@@ -78,7 +78,7 @@ export default function Homepage() {
 
   return (
     <div 
-      className="min-h-screen relative overflow-hidden"
+      className="h-screen-safe relative overflow-hidden"
       style={{
         background: 'linear-gradient(to bottom, rgba(243, 244, 246, 0.5), rgba(243, 232, 255, 0.4) 50%, rgba(249, 250, 251, 0.6))',
       }}

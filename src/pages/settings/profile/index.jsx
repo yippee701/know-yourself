@@ -407,7 +407,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-white relative overflow-hidden">
+    <div className="h-screen-safe w-full bg-white relative overflow-hidden flex flex-col">
       {/* 背景装饰光晕 */}
       <BackgroundGlow />
 
