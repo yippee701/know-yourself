@@ -3,7 +3,6 @@ import { useEffect, useRef, useCallback, useMemo } from 'react';
 import XMarkdown from '@ant-design/x-markdown';
 import Bmob from 'hydrogen-js-sdk';
 import { useReport } from '../../contexts/ReportContext';
-import { useUser } from '../../hooks/useUser';
 import { getCurrentUsername, isLoggedIn } from '../../utils/user';
 import { generateReportTitle } from '../../utils/chat';
 import { getModeFromSearchParams } from '../../constants/modes';

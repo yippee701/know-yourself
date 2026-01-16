@@ -2,7 +2,7 @@ import { HashRouter as Router, Routes, Route } from 'react-router-dom'
 import Bmob from "hydrogen-js-sdk"
 import Homepage from './pages/Homepage'
 import Chat from './pages/chat/Chat'
-import ProfilePage from './pages/settings/profile'
+import ProfilePage from './pages/settings/profile/profile'
 import LoginPage from './pages/settings/user/login'
 import RegisterPage from './pages/settings/user/register'
 import ReportLoading from './pages/report/ReportLoading'

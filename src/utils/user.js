@@ -13,11 +13,18 @@ export function getCurrentUsername() {
   }
 }
 /**
- * 判断是否登录，先简单用用户名判断，后面要根据 token 是否过期判断
+ * 判断是否登录，先简单用是否有 token判断，后面要根据 token 是否过期判断
  * // TODO: 根据 token 是否过期判断
  * @returns boolean
  */
 export function isLoggedIn() {
-  const username = getCurrentUsername();
-  return username !== null;
+  try {
+    const bmobData = localStorage.getItem('bmob');
+    if (!bmobData) return false;
+    
+    const parsed = JSON.parse(bmobData);
+    return parsed.sessionToken ? true : false;
+  } catch {
+    return false;
+  }
 }

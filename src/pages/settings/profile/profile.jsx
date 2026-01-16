@@ -55,12 +55,11 @@ function Avatar({ avatar }) {
 /**
  * 用户头部信息组件
  */
-function UserHeader({ user }) {
+function UserHeader({ user, userExtraInfo }) {
   if (!user) return null;
-  
   return (
     <div className="flex items-center mb-5">
-      <Avatar avatar={user.avatar} />
+      <Avatar avatar={null} />
       <div className="flex-1">
         <div className="flex items-center mb-1.5">
           <span 
@@ -81,7 +80,7 @@ function UserHeader({ user }) {
               fontWeight: 500,
             }}
           >
-            {user.level}
+            {userExtraInfo?.level || 0}
           </span>
         </div>
         
@@ -94,7 +93,7 @@ function UserHeader({ user }) {
           }}
         >
           <span className="text-[13px]" style={{ color: '#374151' }}>
-            剩余深度对话: <strong className="mx-1 text-[15px]" style={{ color: '#8B5CF6' }}>{user.remainingChats}</strong> 次
+            剩余深度对话: <strong className="mx-1 text-[15px]" style={{ color: '#8B5CF6' }}>{userExtraInfo.remainingReport}</strong> 次
           </span>
           <span className="text-xs flex items-center" style={{ color: '#8B5CF6' }}>
             升级 
@@ -111,16 +110,16 @@ function UserHeader({ user }) {
 /**
  * 裂变进度条组件
  */
-function FissionBar({ fission }) {
-  if (!fission) return null;
-  
-  const progress = (fission.currentInvites / fission.targetInvites) * 100;
-  const remaining = fission.targetInvites - fission.currentInvites;
+function FissionBar({ userExtraInfo }) {
+  if (!userExtraInfo) return null;
+  const TARGET_INVITES = 2;
+  const progress = (userExtraInfo.currentInvites / TARGET_INVITES) * 100;
+  const remaining = TARGET_INVITES - userExtraInfo.currentInvites;
   
   return (
     <div className="py-3 my-1">
       <p className="text-[13px] mb-2" style={{ color: '#4B5563' }}>
-        再邀请 <span className="font-bold" style={{ color: '#8B5CF6' }}>{remaining} 位好友</span> 即可解锁 [{fission.rewardName}]
+        再邀请 <span className="font-bold" style={{ color: '#8B5CF6' }}>{remaining} 位好友</span> 即可解锁 
       </p>
       <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(167, 139, 250, 0.15)' }}>
         <div 
@@ -138,8 +137,8 @@ function FissionBar({ fission }) {
 /**
  * 对话卡片组件
  */
-function ConversationCard({ conversation, onRestart, onView }) {
-  const { status, storageType, storageInfo, title, createdAt, content } = conversation;
+function ReportCard({ report, onRestart, onView }) {
+  const { status, storageType, storageInfo, title, createdAt, content } = report;
   const isExpired = status === 'expired';
   const isGenerating = status === 'generating';
   const canView = status === 'completed' && content;
@@ -152,7 +151,7 @@ function ConversationCard({ conversation, onRestart, onView }) {
   // 处理点击
   const handleClick = () => {
     if (canView && onView) {
-      onView(conversation);
+      onView(report);
     }
   };
 
@@ -386,7 +385,7 @@ function NotLoggedIn({ onLogin }) {
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { user, conversations, fission, isLoading, error, isLoggedIn, restartConversation, goToLogin } = useProfile();
+  const { user, reports, userExtraInfo, isLoading, error, isLoggedIn, restartConversation, goToLogin } = useProfile();
   const { setHistoryReport } = useReport();
 
   // 处理重新开启对话
@@ -399,9 +398,9 @@ export default function ProfilePage() {
   };
 
   // 处理查看历史报告
-  const handleViewReport = (conversation) => {
-    if (conversation.content) {
-      setHistoryReport(conversation.content);
+  const handleViewReport = (report) => {
+    if (report.content) {
+      setHistoryReport(report.content);
       navigate('/report-result');
     }
   };
@@ -440,20 +439,20 @@ export default function ProfilePage() {
         ) : (
           <>
             {/* 用户头部 */}
-            <UserHeader user={user} />
+            <UserHeader user={user} userExtraInfo={userExtraInfo} />
 
             {/* 对话卡片列表 */}
             <div className="flex flex-col gap-4">
-              {conversations.map((conv, index) => (
-                <div key={conv.id}>
-                  <ConversationCard 
-                    conversation={conv} 
+              {reports.map((report, index) => (
+                <div key={report.id}>
+                  <ReportCard 
+                    report={report} 
                     onRestart={handleRestart}
                     onView={handleViewReport}
                   />
                   
                   {/* 在第二张卡片后显示裂变进度条 */}
-                  {index === 1 && <FissionBar fission={fission} />}
+                  {index === 1 && <FissionBar userExtraInfo={userExtraInfo}/>}
                 </div>
               ))}
             </div>
