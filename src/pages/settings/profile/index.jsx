@@ -421,7 +421,7 @@ export default function ProfilePage() {
       </div>
 
       {/* 主内容区 */}
-      <div className="relative z-10 px-5 pt-6 pb-20 max-w-md mx-auto">
+      <div className="relative z-10 px-5 pt-6 pb-20 max-w-md">
         {isLoading ? (
           <LoadingSkeleton />
         ) : error ? (
