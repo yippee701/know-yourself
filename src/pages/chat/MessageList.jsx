@@ -123,7 +123,7 @@ export default function MessageList({ messages }) {
           <Bubble
             key={msg.id || index}
             content={msg.content}
-            loading={true}
+            loading={isLoading}
             streaming={isStreaming}
             typing={{ effect: 'typing', step: 2, interval: 30 }}
             onTyping={throttledScroll}
