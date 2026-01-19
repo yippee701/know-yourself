@@ -86,14 +86,29 @@ export default function Chat() {
   // 监听键盘弹起（移动端）
   useEffect(() => {
     const handleViewportResize = () => {
+      console.log('visualViewport resize 触发', {
+        hasVisualViewport: !!window.visualViewport,
+        innerHeight: window.innerHeight,
+        visualViewportHeight: window.visualViewport?.height
+      });
+      
       if (window.visualViewport) {
         // 计算键盘高度 = 屏幕高度 - 可视区域高度
         const keyboardH = window.innerHeight - window.visualViewport.height;
         const newHeight = keyboardH > 0 ? keyboardH : 0;
+        
+        console.log('键盘高度计算:', {
+          keyboardH,
+          newHeight,
+          hasStarted,
+          hasMessageListRef: !!messageListRef.current
+        });
+        
         setKeyboardHeight(newHeight);
         
         // 键盘弹起后，滚动消息列表到底部（考虑键盘高度）
         if (newHeight > 0 && hasStarted && messageListRef.current) {
+          console.log('触发滚动到底部');
           setTimeout(() => {
             messageListRef.current?.scrollToBottom(true, newHeight);
           }, 100); // 延迟一点确保键盘动画完成
@@ -102,6 +117,7 @@ export default function Chat() {
     };
 
     // 监听 visualViewport 变化
+    console.log('设置 visualViewport 监听', { hasVisualViewport: !!window.visualViewport });
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', handleViewportResize);
       window.visualViewport.addEventListener('scroll', handleViewportResize);
