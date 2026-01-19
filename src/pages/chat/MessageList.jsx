@@ -14,7 +14,7 @@ function throttle(fn, delay) {
   };
 }
 
-const markdownRender = content => {
+const reportRender = content => {
   return (
     <XMarkdown content={content} />
   );
@@ -127,7 +127,7 @@ export default function MessageList({ messages }) {
             streaming={isStreaming}
             typing={{ effect: 'typing', step: 2, interval: 30 }}
             onTyping={throttledScroll}
-            contentRender={markdownRender}
+            contentRender={reportRender}
             loadingRender={loadingRender}
             {...aiBubbleBaseProps}
           />
