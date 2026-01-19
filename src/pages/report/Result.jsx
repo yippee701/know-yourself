@@ -1,5 +1,5 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useCallback, useMemo, useRef } from 'react';
 import XMarkdown from '@ant-design/x-markdown';
 import { useReport } from '../../contexts/ReportContext';
 import { generateReportTitle } from '../../utils/chat';
@@ -144,8 +144,8 @@ const markdownComponents = {
     <div className="mb-5 mt-10 first:mt-0">
       <h2 
         className="text-xl"
-        style={{ 
-          fontFamily: '"Noto Serif SC", serif',
+          style={{ 
+            fontFamily: '"Noto Serif SC", serif',
           fontWeight: 700,
           color: '#1F2937',
         }}
@@ -287,20 +287,20 @@ const markdownComponents = {
  * 使用 XMarkdown 渲染 Markdown 格式的报告，带自定义样式
  */
 function ReportContent({ content }) {
-  return (
-    <div 
+    return (
+      <div 
       className="rounded-3xl p-4 sm:p-8"
-      style={{
+        style={{
         backgroundColor: '#FFFFFF',
         boxShadow: '0 10px 40px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0,0,0,0.02)',
-      }}
-    >
+        }}
+      >
       <XMarkdown 
         content={content}
         components={markdownComponents}
       />
-    </div>
-  );
+      </div>
+    );
 }
 
 /**
@@ -317,7 +317,7 @@ function LoginOverlay({ onLogin, registerUrl }) {
     >
       <div 
         className="flex flex-col items-center p-8 rounded-2xl mx-6"
-        style={{
+            style={{
           backgroundColor: 'rgba(255, 255, 255, 0.95)',
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
           border: '1px solid rgba(167, 139, 250, 0.2)',
@@ -334,10 +334,10 @@ function LoginOverlay({ onLogin, registerUrl }) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
           </svg>
         </div>
-        
+
         <h3 
           className="text-lg mb-2"
-          style={{ 
+          style={{
             fontFamily: '"Noto Serif SC", serif',
             fontWeight: 'bold',
             color: '#1F2937',
@@ -378,9 +378,23 @@ export default function Result() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { content, isComplete, isFromHistory, isLoggedIn } = useReport();
+  const scrollContainerRef = useRef(null);
   
   // 从 URL 参数获取模式
   const mode = useMemo(() => getModeFromSearchParams(searchParams), [searchParams]);
+
+  // 如果是历史报告，进入页面时滚动到底部
+  useEffect(() => {
+    if (isFromHistory && content && scrollContainerRef.current) {
+      // 延迟执行，确保内容已渲染
+      setTimeout(() => {
+        scrollContainerRef.current?.scrollTo({
+          top: scrollContainerRef.current.scrollHeight,
+          behavior: 'instant'
+        });
+      }, 100);
+    }
+  }, [isFromHistory, content]);
 
   // 跳转到登录页（带返回地址）
   const handleGoToLogin = useCallback(() => {
@@ -439,7 +453,7 @@ export default function Result() {
       </header>
 
       {/* 内容区 */}
-      <div className="flex-1 overflow-y-auto pb-[220px] px-3 relative z-10">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto pb-[220px] px-3 relative z-10">
         <div className="max-w-md mx-auto py-3">
           <ReportContent content={content} />
         </div>

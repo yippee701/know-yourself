@@ -280,8 +280,8 @@ export default function Chat() {
       {hasStarted && (
       <div 
         ref={inputAreaRef}
-        className="fixed left-0 right-0 max-w-md mx-auto bg-white px-5 pb-2 pt-2 z-20 transition-[bottom] duration-150"
-        style={{ bottom: keyboardHeight }}
+        className="fixed left-0 right-0 max-w-md mx-auto bg-white px-5 pb-2 pt-2 z-20"
+        style={{ bottom: 0 }}
       >
         <div 
           className="w-full rounded-full flex items-center px-5 gap-3"
