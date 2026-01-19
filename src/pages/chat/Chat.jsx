@@ -15,10 +15,10 @@ import { getModeFromSearchParams } from '../../constants/modes';
 // 粒子光圈图标组件 - 玻璃态设计
 function ParticleIcon() {
   return (
-    <div className="relative w-8 h-8 flex items-center justify-center">
+    <div className="relative w-5 h-5 flex items-center justify-center">
       {/* 玻璃态球体 */}
       <div 
-        className="absolute w-8 h-8 rounded-full backdrop-blur-xl shadow-lg"
+        className="absolute w-5 h-5 rounded-full backdrop-blur-xl shadow-lg"
         style={{
           background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.6), rgba(96, 165, 250, 0.4))',
           border: '1px solid rgba(255, 255, 255, 0.3)',
@@ -186,7 +186,7 @@ export default function Chat() {
       </header>
       
       {/* Progress 状态栏 */}
-      <div className="flex items-center justify-between px-5 py-3 relative z-10">
+      <div className="flex items-center justify-between px-5 py-2 relative z-10">
         <ParticleIcon />
         <span 
           className="text-gray-500 tracking-wide text-sm"
@@ -215,7 +215,7 @@ export default function Chat() {
 
       {/* 输入区域 */}
       {hasStarted && (
-      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white px-5 pb-8 z-20">
+      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white px-5 pb-4 z-20">
         <div 
           className="w-full rounded-full flex items-center px-5 gap-3"
           style={{ backgroundColor: '#F3F4F6' }}

@@ -145,6 +145,7 @@ function ProgressBar({ current, total }) {
 }
 
 export default function ReportLoading() {
+  const REPORT_TOTAL_CHARS = 3000;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isComplete, content } = useReport();
@@ -154,7 +155,7 @@ export default function ReportLoading() {
   
   // 计算进度
   const currentChars = content ? content.length : 0;
-  const totalChars = Math.max(10000, currentChars);
+  const totalChars = Math.max(REPORT_TOTAL_CHARS, currentChars);
 
   // 报告生成完成后跳转到结果页
   useEffect(() => {

@@ -13,6 +13,7 @@ export default function ChatInput({ onSend, isLoading, disabled }) {
     <XProvider theme={{
       token: {
         colorPrimary: '#324155',
+        paddingSM: 4,
       },
     }}>
       <Sender
@@ -36,6 +37,9 @@ export default function ChatInput({ onSend, isLoading, disabled }) {
             padding: '8px 0',
             minHeight: '40px',
             background: 'transparent',
+          },
+          suffix: {
+            paddingBottom: '3px',
           },
         }}
       />

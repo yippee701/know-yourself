@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import Bmob from 'hydrogen-js-sdk';
 import { getCurrentUsername } from '../utils/user';
 import { generateReportTitle } from '../utils/chat';
@@ -39,6 +39,15 @@ export function ReportProvider({ children }) {
   });
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
+  // 防止重复保存到远端
+  const isSavingRef = useRef(false);
+  
+  // 追踪最新的状态（解决闭包捕获旧值问题）
+  const reportStateRef = useRef(reportState);
+  useEffect(() => {
+    reportStateRef.current = reportState;
+  }, [reportState]);
 
   // 检测登录状态
   useEffect(() => {
@@ -233,52 +242,64 @@ export function ReportProvider({ children }) {
 
   // 完成报告生成
   const completeReport = useCallback(async () => {
-    setReportState(prev => {
-      const newState = {
-        ...prev,
-        isGenerating: false,
-        isComplete: true,
+    // 防止严格模式下重复调用
+    if (isSavingRef.current) {
+      console.log('已在保存中，跳过重复调用');
+      return;
+    }
+
+    // 使用 ref 获取最新状态（解决闭包捕获旧值问题）
+    const currentState = reportStateRef.current;
+    const reportId = currentState.currentReportId;
+    const reportContent = currentState.content;
+    const reportMessages = currentState.messages;
+
+    console.log('completeReport - reportId:', reportId, 'content length:', reportContent?.length);
+
+    // 更新状态
+    setReportState(prev => ({
+      ...prev,
+      isGenerating: false,
+      isComplete: true,
+    }));
+
+    // 副作用：保存到本地和远端
+    if (reportId) {
+      isSavingRef.current = true; // 标记正在保存
+      
+      const reportUpdate = {
+        content: reportContent,
+        messages: reportMessages,
+        status: 'completed',
       };
 
-      // 更新本地报告状态为完成
-      if (prev.currentReportId) {
-        const reportUpdate = {
-          content: prev.content,
-          messages: prev.messages,
-          status: 'completed',
-        };
+      // 先更新本地
+      updateLocalReport(reportId, reportUpdate);
 
-        // 先更新本地
-        updateLocalReport(prev.currentReportId, reportUpdate);
-
-        // 如果已登录，同步到远端
-        if (isLoggedIn) {
-          // 获取完整的本地报告数据
-          try {
-            const localReports = JSON.parse(localStorage.getItem(LOCAL_REPORTS_KEY) || '[]');
-            const currentReport = localReports.find(r => r.localId === prev.currentReportId);
+      // 如果已登录，同步到远端
+      if (isLoggedIn) {
+        try {
+          const localReports = JSON.parse(localStorage.getItem(LOCAL_REPORTS_KEY) || '[]');
+          const currentReport = localReports.find(r => r.localId === reportId);
+          
+          if (currentReport) {
+            await saveReportToRemote({
+              ...currentReport,
+              ...reportUpdate,
+            });
             
-            if (currentReport) {
-              saveReportToRemote({
-                ...currentReport,
-                ...reportUpdate,
-              }).then(() => {
-                // 同步成功后，从本地删除这条记录
-                const updatedReports = localReports.filter(r => r.localId !== prev.currentReportId);
-                localStorage.setItem(LOCAL_REPORTS_KEY, JSON.stringify(updatedReports));
-                console.log('报告已同步到远端并清除本地缓存');
-              }).catch((err) => {
-                console.error('同步到远端失败，保留本地记录:', err);
-              });
-            }
-          } catch (err) {
-            console.error('处理本地报告失败:', err);
+            // 同步成功后，从本地删除这条记录
+            const updatedReports = localReports.filter(r => r.localId !== reportId);
+            localStorage.setItem(LOCAL_REPORTS_KEY, JSON.stringify(updatedReports));
+            console.log('报告已同步到远端并清除本地缓存');
           }
+        } catch (err) {
+          console.error('同步到远端失败，保留本地记录:', err);
         }
       }
-
-      return newState;
-    });
+      
+      isSavingRef.current = false; // 重置保存状态
+    }
   }, [isLoggedIn, saveReportToRemote, updateLocalReport]);
 
   // 重置报告状态

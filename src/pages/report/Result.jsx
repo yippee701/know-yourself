@@ -1,9 +1,7 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useEffect, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import XMarkdown from '@ant-design/x-markdown';
-import Bmob from 'hydrogen-js-sdk';
 import { useReport } from '../../contexts/ReportContext';
-import { getCurrentUsername, isLoggedIn } from '../../utils/user';
 import { generateReportTitle } from '../../utils/chat';
 import { getModeFromSearchParams } from '../../constants/modes';
 
@@ -37,7 +35,7 @@ function BackgroundGlow() {
 function ConversionZone() {
   return (
     <div 
-      className="absolute bottom-0 left-0 right-0 h-52 flex flex-col items-center justify-end pb-8 z-50"
+      className="absolute bottom-0 left-0 right-0 h-32 flex flex-col items-center justify-end pb-4 z-50"
       style={{
         background: 'linear-gradient(to top, #FFFFFF 85%, rgba(255, 255, 255, 0) 100%)',
       }}
@@ -124,7 +122,7 @@ function GlowingSphere() {
 const markdownComponents = {
   // 一级标题 - 主标题（通常是报告标题）
   h1: ({ children }) => (
-    <div className="text-center mb-8">
+    <div className="text-center mb-2">
       <GlowingSphere />
       <h1 
         className="text-2xl mb-2"
@@ -379,12 +377,10 @@ function LoginOverlay({ onLogin, registerUrl }) {
 export default function Result() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { content, isComplete, isFromHistory } = useReport();
-  const username = getCurrentUsername() || '探索者';
+  const { content, isComplete, isFromHistory, isLoggedIn } = useReport();
   
   // 从 URL 参数获取模式
   const mode = useMemo(() => getModeFromSearchParams(searchParams), [searchParams]);
-  const hasSavedRef = useRef(false); // 防止重复保存
 
   // 跳转到登录页（带返回地址）
   const handleGoToLogin = useCallback(() => {
@@ -392,37 +388,8 @@ export default function Result() {
     navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}`);
   }, [navigate, mode]);
 
-  // 保存报告
-  const saveReport = useCallback(async (reportContent) => {
-    // 未登录时不保存
-    if (!isLoggedIn) return;
-    
-    try {
-      const title = generateReportTitle(mode);
-      
-      const query = Bmob.Query('Report');
-      query.set('content', reportContent);
-      query.set('username', username);
-      query.set('title', title);
-      query.set('status', 'completed');
-      query.set('mode', mode);
-      
-      const res = await query.save();
-      console.log('报告保存成功:', res);
-      return res;
-    } catch (err) {
-      console.error('报告保存失败:', err);
-      throw err;
-    }
-  }, [username, mode, isLoggedIn]);
-
-  // 报告生成完成后保存到数据库（仅登录用户，且非历史报告）
-  useEffect(() => {
-    if (isComplete && content && !hasSavedRef.current && isLoggedIn && !isFromHistory) {
-      hasSavedRef.current = true;
-      saveReport(content);
-    }
-  }, [isComplete, content, saveReport, isLoggedIn, isFromHistory]);
+  // 注意：报告保存逻辑已统一在 ReportContext 的 completeReport() 中处理
+  // 这里不再重复保存，避免多次调用接口
 
   // 如果没有报告内容，重定向到首页
   useEffect(() => {
@@ -447,7 +414,7 @@ export default function Result() {
 
       {/* 顶部标题栏 */}
       <header 
-        className="flex items-center justify-between px-4 py-4 relative z-50"
+        className="flex items-center justify-between px-4 py-2 relative z-50"
         style={{ borderBottom: '1px solid rgba(243, 244, 246, 1)' }}
       >
         <Link 
@@ -473,7 +440,7 @@ export default function Result() {
 
       {/* 内容区 */}
       <div className="flex-1 overflow-y-auto pb-[220px] px-3 relative z-10">
-        <div className="max-w-md mx-auto py-6">
+        <div className="max-w-md mx-auto py-3">
           <ReportContent content={content} />
         </div>
       </div>
