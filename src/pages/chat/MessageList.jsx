@@ -88,7 +88,7 @@ const userBubbleProps = {
   },
 };
 
-const MessageList = forwardRef(function MessageList({ messages }, ref) {
+const MessageList = forwardRef(function MessageList({ messages, keyboardHeight = 0 }, ref) {
   const messagesEndRef = useRef(null);
   const containerRef = useRef(null);
   const lastMessage = messages[messages.length - 1];
@@ -112,11 +112,14 @@ const MessageList = forwardRef(function MessageList({ messages }, ref) {
   }, []);
 
   // 滚动到底部（考虑键盘高度）
-  const scrollToBottom = useCallback((instant = false, keyboardHeight = 0) => {
+  const scrollToBottom = useCallback((instant = false, overrideKeyboardHeight = null) => {
     const container = getScrollContainer();
     const endElement = messagesEndRef.current;
     
     if (!endElement || !container) return;
+    
+    // 使用传入的键盘高度，如果没有则使用 prop 中的值
+    const currentKeyboardHeight = overrideKeyboardHeight !== null ? overrideKeyboardHeight : keyboardHeight;
     
     if (container === window) {
       // 如果容器是 window，使用 scrollIntoView
@@ -125,44 +128,57 @@ const MessageList = forwardRef(function MessageList({ messages }, ref) {
         block: 'end'
       });
     } else {
-      // 使用 visualViewport 获取实际可视区域高度
+      // 使用 visualViewport 获取实际可视区域高度（考虑键盘）
       const visualViewportHeight = window.visualViewport?.height || window.innerHeight;
       const containerRect = container.getBoundingClientRect();
       
       // 计算容器在可视区域内的实际可用高度
       // 容器顶部到可视区域底部的距离
       const containerTopInViewport = Math.max(0, containerRect.top);
-      const availableHeight = visualViewportHeight - containerTopInViewport;
+      // 考虑键盘高度：可用高度 = 可视区域高度 - 容器顶部位置 - 键盘高度
+      const availableHeight = visualViewportHeight - containerTopInViewport - currentKeyboardHeight;
       
-      // 计算消息底部元素的位置
-      const endRect = endElement.getBoundingClientRect();
-      const endBottomInContainer = endRect.bottom - containerRect.top + container.scrollTop;
+      // 计算消息底部元素在容器内容中的位置
+      // 方法：从元素向上遍历到容器，累加 offsetTop
+      let element = endElement;
+      let endTopInContainer = 0;
+      while (element && element !== container) {
+        endTopInContainer += element.offsetTop;
+        element = element.offsetParent;
+      }
+      const endBottomInContainer = endTopInContainer + endElement.offsetHeight;
       
       // 计算目标滚动位置：让消息底部在可视区域底部可见
-      // 留一些边距避免紧贴底部
       const padding = 30;
       const targetScrollTop = endBottomInContainer - availableHeight + padding;
       
       console.log('滚动计算:', {
-        keyboardHeight,
+        keyboardHeight: currentKeyboardHeight,
         visualViewportHeight,
         containerTop: containerRect.top,
+        containerClientHeight: container.clientHeight,
         availableHeight,
+        endTopInContainer,
         endBottomInContainer,
         targetScrollTop,
-        scrollHeight: container.scrollHeight
+        scrollHeight: container.scrollHeight,
+        currentScrollTop: container.scrollTop
       });
       
+      // 确保滚动位置在有效范围内
+      const maxScrollTop = container.scrollHeight - container.clientHeight;
+      const finalScrollTop = Math.max(0, Math.min(targetScrollTop, maxScrollTop));
+      
       if (instant) {
-        container.scrollTop = Math.max(0, Math.min(targetScrollTop, container.scrollHeight));
+        container.scrollTop = finalScrollTop;
       } else {
         container.scrollTo({
-          top: Math.max(0, Math.min(targetScrollTop, container.scrollHeight)),
+          top: finalScrollTop,
           behavior: 'smooth'
         });
       }
     }
-  }, [getScrollContainer]);
+  }, [getScrollContainer, keyboardHeight]);
 
   // 暴露 scrollToBottom 方法给父组件
   useImperativeHandle(ref, () => ({
@@ -175,7 +191,7 @@ const MessageList = forwardRef(function MessageList({ messages }, ref) {
     [scrollToBottom]
   );
 
-  // 消息数量变化或内容更新时滚动
+  // 消息数量变化或内容更新时滚动（使用当前的 keyboardHeight）
   useEffect(() => {
     if (isStreaming) {
       // 流式输出时使用即时滚动

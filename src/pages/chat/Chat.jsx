@@ -243,7 +243,7 @@ export default function Chat() {
               welcomeMessage={welcomeMessage} 
             />
           ) : (
-            <MessageList ref={messageListRef} messages={messages} />
+            <MessageList ref={messageListRef} messages={messages} keyboardHeight={keyboardHeight} />
           )}
         </div>
       </div>
