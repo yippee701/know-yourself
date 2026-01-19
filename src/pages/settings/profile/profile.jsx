@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
+import Bmob from 'hydrogen-js-sdk';
 
-// Hook
 import { useProfile } from '../../../hooks/useProfile';
 import { useReport } from '../../../contexts/ReportContext';
 
@@ -405,6 +405,19 @@ export default function ProfilePage() {
     }
   };
 
+  // 处理退出登录
+  const handleLogout = async () => {
+    try {
+      // 这里会把 localStorage 中所有数据清空，包括 pendingReport 数据
+      Bmob.User.logout();
+      
+      // 刷新页面或跳转到首页
+      navigate('/');
+    } catch (err) {
+      console.error('退出登录失败:', err);
+    }
+  };
+
   return (
     <div className="h-screen-safe w-full bg-white relative overflow-hidden flex flex-col">
       {/* 背景装饰光晕 */}
@@ -440,6 +453,19 @@ export default function ProfilePage() {
           <>
             {/* 用户头部 */}
             <UserHeader user={user} userExtraInfo={userExtraInfo} />
+
+            {/* 退出登录按钮 */}
+            <button
+              onClick={handleLogout}
+              className="w-full mb-6 py-3 rounded-xl text-sm font-medium transition-all active:scale-[0.98]"
+              style={{
+                color: '#6B7280',
+                backgroundColor: 'rgba(243, 244, 246, 0.8)',
+                border: '1px solid rgba(209, 213, 219, 0.5)',
+              }}
+            >
+              退出登录
+            </button>
 
             {/* 对话卡片列表 */}
             <div className="flex flex-col gap-4">

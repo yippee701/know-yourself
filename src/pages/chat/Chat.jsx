@@ -79,7 +79,7 @@ export default function Chat() {
 
   const [hasStarted, setHasStarted] = useState(false);
   const [pendingReport, setPendingReport] = useState(null);
-  
+
   // 组件挂载时检查是否有未完成的报告
   useEffect(() => {
     const pending = getLocalPendingReport(chatMode);

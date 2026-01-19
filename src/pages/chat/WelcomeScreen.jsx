@@ -17,7 +17,7 @@ export default function WelcomeScreen({
 }) {
   return (
     <div className="flex-1 flex items-center justify-center">
-      <div className="text-center">
+    <div className="text-center">
       {/* 欢迎消息 */}
       <div className="text-left mb-6">
         <p 
@@ -63,24 +63,24 @@ export default function WelcomeScreen({
           </>
         ) : (
           /* 没有未完成对话时显示原始按钮 */
-          <button
-            onClick={onStart}
+        <button
+          onClick={onStart}
             className="relative top-12 px-8 py-3 rounded-full text-white text-base font-medium transition-all duration-300 active:scale-[0.98] disabled:opacity-60"
+          style={{
+            backgroundColor: '#324155',
+            boxShadow: '0 6px 16px rgba(143, 168, 155, 0.25)',
+          }}
+        >
+          <div 
+            className="absolute inset-0 rounded-full"
             style={{
-              backgroundColor: '#324155',
-              boxShadow: '0 6px 16px rgba(143, 168, 155, 0.25)',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 100%)',
             }}
-          >
-            <div 
-              className="absolute inset-0 rounded-full"
-              style={{
-                background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 100%)',
-              }}
-            />
-            <span className="relative z-10">
-              {'我知道了，开始吧'}
-            </span>
-          </button>
+          />
+          <span className="relative z-10">
+            {'我知道了，开始吧'}
+          </span>
+        </button>
         )}
       </div>
       </div>
