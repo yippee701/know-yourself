@@ -82,42 +82,47 @@ export default function Chat() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const inputAreaRef = useRef(null);
   const messageListRef = useRef(null);
+  // 记录初始视口高度（键盘未弹起时的高度）
+  const initialViewportHeight = useRef(window.visualViewport?.height || window.innerHeight);
 
   // 监听键盘弹起（移动端）
   useEffect(() => {
+    // 更新初始高度（取最大值，因为键盘收起时高度最大）
+    const updateInitialHeight = () => {
+      const currentHeight = window.visualViewport?.height || window.innerHeight;
+      if (currentHeight > initialViewportHeight.current) {
+        initialViewportHeight.current = currentHeight;
+      }
+    };
+    
     const handleViewportResize = () => {
-      console.log('visualViewport resize 触发', {
-        hasVisualViewport: !!window.visualViewport,
-        innerHeight: window.innerHeight,
-        visualViewportHeight: window.visualViewport?.height
+      updateInitialHeight();
+      
+      const currentHeight = window.visualViewport?.height || window.innerHeight;
+      // 计算键盘高度 = 初始高度 - 当前可视区域高度
+      const keyboardH = initialViewportHeight.current - currentHeight;
+      const newHeight = keyboardH > 0 ? keyboardH : 0;
+      
+      console.log('键盘高度计算:', {
+        initialHeight: initialViewportHeight.current,
+        currentHeight,
+        keyboardH: newHeight,
+        hasStarted,
+        hasMessageListRef: !!messageListRef.current
       });
       
-      if (window.visualViewport) {
-        // 计算键盘高度 = 屏幕高度 - 可视区域高度
-        const keyboardH = window.innerHeight - window.visualViewport.height;
-        const newHeight = keyboardH > 0 ? keyboardH : 0;
-        
-        console.log('键盘高度计算:', {
-          keyboardH,
-          newHeight,
-          hasStarted,
-          hasMessageListRef: !!messageListRef.current
-        });
-        
-        setKeyboardHeight(newHeight);
-        
-        // 键盘弹起后，滚动消息列表到底部（考虑键盘高度）
-        if (newHeight > 0 && hasStarted && messageListRef.current) {
-          console.log('触发滚动到底部');
-          setTimeout(() => {
-            messageListRef.current?.scrollToBottom(true, newHeight);
-          }, 100); // 延迟一点确保键盘动画完成
-        }
+      setKeyboardHeight(newHeight);
+      
+      // 键盘弹起后，滚动消息列表到底部（考虑键盘高度）
+      if (newHeight > 0 && hasStarted && messageListRef.current) {
+        console.log('触发滚动到底部');
+        setTimeout(() => {
+          messageListRef.current?.scrollToBottom(true, newHeight);
+        }, 100); // 延迟一点确保键盘动画完成
       }
     };
 
     // 监听 visualViewport 变化
-    console.log('设置 visualViewport 监听', { hasVisualViewport: !!window.visualViewport });
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', handleViewportResize);
       window.visualViewport.addEventListener('scroll', handleViewportResize);
