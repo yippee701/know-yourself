@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Sender, XProvider } from '@ant-design/x';
-
-export default function ChatInput({ onSend, isLoading, disabled, onFocus }) {
+export default function ChatInput({ onSend, isLoading, disabled }) {
   const [inputValue, setInputValue] = useState('');
 
   const handleSubmit = (message) => {
@@ -17,36 +16,33 @@ export default function ChatInput({ onSend, isLoading, disabled, onFocus }) {
         paddingSM: 4,
       },
     }}>
-      {/* 使用 onFocusCapture 捕获内部 input 的焦点事件 */}
-      <div onFocusCapture={onFocus}>
-        <Sender
-          value={inputValue}
-          onChange={setInputValue}
-          onSubmit={handleSubmit}
-          loading={isLoading}
-          disabled={disabled || isLoading}
-          placeholder="输入消息..."
-          style={{
+      <Sender
+        value={inputValue}
+        onChange={setInputValue}
+        onSubmit={handleSubmit}
+        loading={isLoading}
+        disabled={disabled || isLoading}
+        placeholder="输入消息..."
+        style={{
+          background: 'transparent',
+          borderRadius: '9999px',
+          border: 'none',
+          boxShadow: 'none',
+        }}
+        styles={{
+          input: {
+            fontFamily: '"Noto Sans SC", sans-serif',
+            color: '#000000',
+            fontSize: '14px',
+            padding: '8px 0',
+            minHeight: '40px',
             background: 'transparent',
-            borderRadius: '9999px',
-            border: 'none',
-            boxShadow: 'none',
-          }}
-          styles={{
-            input: {
-              fontFamily: '"Noto Sans SC", sans-serif',
-              color: '#000000',
-              fontSize: '14px',
-              padding: '8px 0',
-              minHeight: '40px',
-              background: 'transparent',
-            },
-            suffix: {
-              paddingBottom: '3px',
-            },
-          }}
-        />
-      </div>
+          },
+          suffix: {
+            paddingBottom: '3px',
+          },
+        }}
+      />
     </XProvider>
   );
 }
