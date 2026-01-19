@@ -90,16 +90,62 @@ const userBubbleProps = {
 
 const MessageList = forwardRef(function MessageList({ messages }, ref) {
   const messagesEndRef = useRef(null);
+  const containerRef = useRef(null);
   const lastMessage = messages[messages.length - 1];
   const lastContent = lastMessage?.content;
   const isStreaming = lastMessage?.status === 'loading';
 
-  // 滚动到底部
-  const scrollToBottom = useCallback((instant = false) => {
-    messagesEndRef.current?.scrollIntoView({ 
-      behavior: instant ? 'instant' : 'smooth' 
-    });
+  // 获取滚动容器（向上查找第一个可滚动的父元素）
+  const getScrollContainer = useCallback(() => {
+    if (!messagesEndRef.current) return null;
+    
+    let parent = messagesEndRef.current.parentElement;
+    while (parent) {
+      const style = window.getComputedStyle(parent);
+      if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+        return parent;
+      }
+      parent = parent.parentElement;
+    }
+    // 如果没找到，返回 window
+    return window;
   }, []);
+
+  // 滚动到底部（考虑键盘高度）
+  const scrollToBottom = useCallback((instant = false, keyboardHeight = 0) => {
+    const container = getScrollContainer();
+    const endElement = messagesEndRef.current;
+    
+    if (!endElement) return;
+    
+    if (container === window) {
+      // 如果容器是 window，使用 scrollIntoView
+      endElement.scrollIntoView({ 
+        behavior: instant ? 'instant' : 'smooth',
+        block: 'end'
+      });
+    } else {
+      // 如果容器是元素，使用 scrollTop 精确控制
+      const scrollHeight = container.scrollHeight;
+      const clientHeight = container.clientHeight;
+      
+      // 考虑键盘高度：可视区域高度 = 容器高度 - 键盘高度
+      const visibleHeight = clientHeight - keyboardHeight;
+      
+      // 计算目标滚动位置：滚动到底部，考虑键盘占用的可视空间
+      // scrollTop = scrollHeight - visibleHeight
+      const targetScrollTop = scrollHeight - visibleHeight;
+      
+      if (instant) {
+        container.scrollTop = Math.max(0, targetScrollTop);
+      } else {
+        container.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior: 'smooth'
+        });
+      }
+    }
+  }, [getScrollContainer]);
 
   // 暴露 scrollToBottom 方法给父组件
   useImperativeHandle(ref, () => ({
@@ -124,7 +170,7 @@ const MessageList = forwardRef(function MessageList({ messages }, ref) {
   }, [messages.length, lastContent, isStreaming, scrollToBottom]);
 
   return (
-    <div className="pt-4 space-y-6">
+    <div ref={containerRef} className="pt-4 space-y-6">
       {messages.map((msg, index) => {
         const isUser = msg.role === 'user';
         const isStreaming = msg.status === 'loading';

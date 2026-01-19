@@ -92,10 +92,10 @@ export default function Chat() {
         const newHeight = keyboardH > 0 ? keyboardH : 0;
         setKeyboardHeight(newHeight);
         
-        // 键盘弹起后，滚动消息列表到底部
+        // 键盘弹起后，滚动消息列表到底部（考虑键盘高度）
         if (newHeight > 0 && hasStarted && messageListRef.current) {
           setTimeout(() => {
-            messageListRef.current?.scrollToBottom(true);
+            messageListRef.current?.scrollToBottom(true, newHeight);
           }, 100); // 延迟一点确保键盘动画完成
         }
       }
