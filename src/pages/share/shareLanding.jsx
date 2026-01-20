@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import XMarkdown from '@ant-design/x-markdown';
 import Bmob from 'hydrogen-js-sdk';
 import { getModeLabel } from '../../constants/modes';
 
@@ -60,12 +61,6 @@ function SharerCard({ username }) {
 
 // ========== 内容展示卡片 ==========
 function ContentCard({ subTitle, content, modeLabel }) {
-  const extractDescription = (text) => {
-    if (!text) return '通过深度对话，发现你不曾察觉的一面。AI 陪伴你探索内心，记录成长轨迹，重塑自我认知。';
-    // 移除 markdown 标记，取一段内容
-    const cleanText = text.replace(/[#*>\[\]]/g, '').replace(/\n+/g, ' ');
-    return cleanText.slice(0, 200) + '...';
-  };
 
   return (
     <div 
@@ -98,7 +93,7 @@ function ContentCard({ subTitle, content, modeLabel }) {
           className="text-2xl leading-relaxed text-indigo-500 mb-4"
           style={{ fontFamily: "'Noto Serif SC', serif" }}
         >
-          "{subTitle}"
+          {subTitle}
         </h1>
         <div 
           className="w-10 h-1 mx-auto rounded-full"
@@ -108,7 +103,7 @@ function ContentCard({ subTitle, content, modeLabel }) {
 
       {/* Description */}
       <p className="text-gray-600 text-sm leading-relaxed text-justify">
-        {extractDescription(content)}
+        <XMarkdown content={content} />
       </p>
     </div>
   );
@@ -230,21 +225,6 @@ export default function ShareLanding() {
         {/* 2. 内容展示卡片 */}
         <ContentCard subTitle={report?.subTitle} content={report?.content} modeLabel={modeLabel} />
 
-        {/* 3. 主要 CTA 按钮 */}
-        {report?.content && (
-          <Link
-            to={`/report-result?mode=${mode}&reportId=${reportId}`}
-            className="block w-full text-center text-white py-5 rounded-2xl text-lg font-bold mb-10 transition-transform active:scale-[0.98]"
-            style={{ 
-              background: 'linear-gradient(135deg, #8B5CF6 0%, #6B6BFF 100%)',
-              boxShadow: '0 10px 25px rgba(139, 92, 246, 0.3)',
-              animation: 'fadeInUp 0.8s ease-out 0.4s backwards'
-            }}
-          >
-            查看完整报告
-          </Link>
-        )}
-
         {/* 4. 产品介绍 */}
         <div 
           className="text-center mb-8"
@@ -294,23 +274,29 @@ export default function ShareLanding() {
         {/* 6. 社会证明 */}
         <SocialProof />
 
-        {/* 7. 底部 CTA 按钮 */}
-        <Link
-          to="/"
-          className="flex items-center justify-center gap-2 w-full bg-gray-900 text-white py-4 rounded-2xl text-base font-bold mb-8 transition-colors hover:bg-black"
-          style={{ 
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-            animation: 'fadeInUp 0.8s ease-out 0.8s backwards'
-          }}
-        >
-          开始探索
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-          </svg>
-        </Link>
-
-        {/* 8. 页脚 */}
+        {/* 7. 页脚 */}
         <Footer />
+        
+        {/* 底部占位，避免内容被浮动按钮遮挡 */}
+        <div className="h-20" />
+      </div>
+
+      {/* 8. 浮动吸底 CTA 按钮 */}
+      <div className="fixed bottom-3 left-0 right-0 z-50 px-5 pb-safe bg-gradient-to-t from-gray-50 via-gray-50 to-transparent pt-4">
+        <div className="max-w-md mx-auto">
+          <Link
+            to="/"
+            className="flex items-center justify-center gap-2 w-full bg-gray-900 text-white py-4 rounded-2xl text-base font-bold transition-all hover:bg-black active:scale-[0.98]"
+            style={{ 
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+            }}
+          >
+            我也要探索
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
+          </Link>
+        </div>
       </div>
 
       {/* 动画样式 */}
