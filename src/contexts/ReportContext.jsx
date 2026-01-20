@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import Bmob from 'hydrogen-js-sdk';
-import { getCurrentUsername } from '../utils/user';
+import { getCurrentUsername, getCurrentUserObjectId } from '../utils/user';
 import { generateReportTitle } from '../utils/chat';
 
 const ReportContext = createContext(null);
@@ -48,6 +48,51 @@ export function ReportProvider({ children }) {
   useEffect(() => {
     reportStateRef.current = reportState;
   }, [reportState]);
+
+  const updateUserRemainingReport = useCallback(async () => {
+    try {
+      const objectId = getCurrentUserObjectId();
+      if (!objectId) throw new Error('获取用户 objectId 失败');
+
+      const query = Bmob.Query('_User')
+      query.get(objectId).then(res => {
+          res.increment('remainingReport', -1);
+          res.save();
+          console.log('更新用户剩余报告成功');
+      }).catch(err => {
+          console.log(err)
+      })
+    } catch (err) {
+      console.error('更新用户剩余报告失败:', err);
+      throw err;
+    }
+  }, []);
+
+  // 保存报告到远端 Bmob
+  const saveReportToRemote = useCallback(async (report) => {
+    try {
+      const username = getCurrentUsername();
+      if (!username) throw new Error('未获取到用户名');
+      
+      const query = Bmob.Query('Report');
+      query.set('content', report.content || '');
+      query.set('username', username);
+      query.set('title', report.title);
+      query.set('status', report.status);
+      query.set('mode', report.mode);
+      query.set('messages', JSON.stringify(report.messages || [])); // 存储对话记录
+      
+      const res = await query.save();
+      console.log('报告保存到远端成功:', res);
+
+      await updateUserRemainingReport();
+
+      return res;
+    } catch (err) {
+      console.error('报告保存到远端失败:', err);
+      throw err;
+    }
+  }, []);
 
   // 检测登录状态
   const checkLogin = useCallback(() => {
@@ -127,8 +172,6 @@ export function ReportProvider({ children }) {
     };
   }, [checkLogin]);
 
-  // ========== 本地存储方法 ==========
-
   // 保存报告到本地 localStorage
   const saveReportToLocal = useCallback((report) => {
     try {
@@ -159,31 +202,6 @@ export function ReportProvider({ children }) {
       }
     } catch (err) {
       console.error('更新本地报告失败:', err);
-    }
-  }, []);
-
-  // ========== 远端存储方法 ==========
-
-  // 保存报告到远端 Bmob
-  const saveReportToRemote = useCallback(async (report) => {
-    try {
-      const username = getCurrentUsername();
-      if (!username) throw new Error('未获取到用户名');
-      
-      const query = Bmob.Query('Report');
-      query.set('content', report.content || '');
-      query.set('username', username);
-      query.set('title', report.title);
-      query.set('status', report.status);
-      query.set('mode', report.mode);
-      query.set('messages', JSON.stringify(report.messages || [])); // 存储对话记录
-      
-      const res = await query.save();
-      console.log('报告保存到远端成功:', res);
-      return res;
-    } catch (err) {
-      console.error('报告保存到远端失败:', err);
-      throw err;
     }
   }, []);
 

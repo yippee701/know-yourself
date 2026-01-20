@@ -163,6 +163,9 @@ export default function RegisterPage() {
         username,
         password,
         email: `${username}@temp.com`,
+        currentInvites: 0,
+        remainingReport: 2,
+        level: 0,
       };
       
       // 如果填写了手机号，添加到注册参数

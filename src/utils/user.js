@@ -12,6 +12,21 @@ export function getCurrentUsername() {
     return null;
   }
 }
+
+/**
+ * 从 localStorage 获取当前用户 objectId
+ */
+export function getCurrentUserObjectId() {
+  try {
+    const bmobData = localStorage.getItem('bmob');
+    if (!bmobData) return null;
+    const parsed = JSON.parse(bmobData);
+    return parsed.objectId || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * 判断是否登录，先简单用是否有 token判断，后面要根据 token 是否过期判断
  * // TODO: 根据 token 是否过期判断
