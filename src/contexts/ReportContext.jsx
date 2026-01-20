@@ -87,6 +87,12 @@ export function ReportProvider({ children }) {
 
       await updateUserRemainingReport();
 
+      // 把报告 id 拼到 url 参数上
+      const reportId = res.objectId;
+      const routePath = `/report-result?mode=${report.mode}&reportId=${reportId}`;
+      // 只修改 location.hash，不进行跳转
+      window.location.hash = routePath;
+
       return res;
     } catch (err) {
       console.error('报告保存到远端失败:', err);

@@ -401,7 +401,10 @@ export default function ProfilePage() {
   const handleViewReport = (report) => {
     if (report.content) {
       setHistoryReport(report.content);
-      navigate('/report-result');
+      // 将 reportId 和 mode 拼接到 URL 上
+      const mode = report.mode || 'discover-self';
+      const reportId = report.id;
+      navigate(`/report-result?mode=${mode}&reportId=${reportId}`);
     }
   };
 

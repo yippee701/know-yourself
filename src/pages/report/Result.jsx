@@ -1,9 +1,11 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useCallback, useMemo, useState } from 'react';
 import XMarkdown from '@ant-design/x-markdown';
 import { useReport } from '../../contexts/ReportContext';
 import { generateReportTitle } from '../../utils/chat';
 import { getModeFromSearchParams } from '../../constants/modes';
+import { useToast } from '../../components/Toast';
+import ShareDialog from '../share/shareDialog';
 
 // ========== 子组件 ==========
 
@@ -32,7 +34,7 @@ function BackgroundGlow() {
 /**
  * 底部转化区组件
  */
-function ConversionZone() {
+function ConversionZone({ onUpgrade, onShare }) {
   return (
     <div 
       className="absolute bottom-0 left-0 right-0 h-32 flex flex-col items-center justify-end pb-4 z-50"
@@ -44,6 +46,7 @@ function ConversionZone() {
         {/* 按钮组 */}
         <div className="flex gap-3 w-full">
           <button 
+            onClick={onShare}
             className="flex-1 h-12 rounded-full text-base font-medium transition-all active:scale-[0.98]"
             style={{
               color: '#374151',
@@ -54,6 +57,7 @@ function ConversionZone() {
             邀请好友
           </button>
           <button 
+            onClick={onUpgrade}
             className="flex-1 h-12 rounded-full text-base text-white font-medium transition-all active:scale-[0.98]"
             style={{
               backgroundColor: '#1F2937',
@@ -377,6 +381,9 @@ export default function Result() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { content, isComplete, isLoggedIn } = useReport();
+  const { message } = useToast();
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
   
   // 从 URL 参数获取模式
   const mode = useMemo(() => getModeFromSearchParams(searchParams), [searchParams]);
@@ -386,6 +393,30 @@ export default function Result() {
     const returnUrl = `/profile`;
     navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}`);
   }, [navigate, mode]);
+
+  // 处理升级按钮点击
+  const handleUpgrade = useCallback(() => {
+    message.info('功能开发中');
+  }, [message]);
+
+  // 处理分享按钮点击
+  const handleShare = useCallback(() => {
+    const currentSearchParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
+    const reportId = currentSearchParams.get('reportId');
+    if (!reportId) {
+      message.warning('报告 ID 不存在，无法分享');
+      return;
+    }
+    const baseUrl = `${window.location.origin}${window.location.pathname}`;
+    const shareUrl = `${baseUrl}#/share?mode=${mode}&reportId=${reportId}`;    
+    setShareUrl(shareUrl);
+    setIsShareDialogOpen(true);
+  }, [message]);
+
+  // 关闭分享弹窗
+  const handleCloseShareDialog = useCallback(() => {
+    setIsShareDialogOpen(false);
+  }, []);
 
   // 注意：报告保存逻辑已统一在 ReportContext 的 completeReport() 中处理
   // 这里不再重复保存，避免多次调用接口
@@ -453,7 +484,14 @@ export default function Result() {
       )}
 
       {/* 底部转化区 */}
-      <ConversionZone />
+      <ConversionZone onUpgrade={handleUpgrade} onShare={handleShare} />
+
+      {/* 分享弹窗 */}
+      <ShareDialog 
+        isOpen={isShareDialogOpen}
+        onClose={handleCloseShareDialog}
+        shareUrl={shareUrl}
+      />
     </div>
   );
 }

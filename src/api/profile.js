@@ -73,6 +73,7 @@ async function fetchReports() {
         storageType: report.storageType || null,
         storageInfo: report.storageInfo || null,
         content: report.content,
+        mode: report.mode || 'discover-self', // 包含 mode 字段
       }));
     }
     
