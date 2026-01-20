@@ -5,10 +5,12 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import MessageList from './MessageList';
 import WelcomeScreen from './WelcomeScreen';
 import ChatInput from './ChatInput';
+import NoQuotaDialog from '../../components/NoQuotaDialog';
 
 // Hook & Context
 import { useChat } from '../../hooks/useChat';
 import { useReport } from '../../contexts/ReportContext';
+import { useProfile, checkCanStartChat } from '../../hooks/useProfile';
 import { getWelcomeMessage } from '../../api/chat';
 import { getModeFromSearchParams } from '../../constants/modes';
 
@@ -80,10 +82,25 @@ export default function Chat() {
   const [hasStarted, setHasStarted] = useState(false);
   const [pendingReport, setPendingReport] = useState(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [showNoQuotaDialog, setShowNoQuotaDialog] = useState(false);
   const inputAreaRef = useRef(null);
   const messageListRef = useRef(null);
   // 记录初始视口高度（键盘未弹起时的高度）
   const initialViewportHeight = useRef(window.visualViewport?.height || window.innerHeight);
+  
+  // 获取用户信息用于检查对话次数
+  const { isLoggedIn, userExtraInfo, isLoading: isProfileLoading } = useProfile();
+  
+  // 页面加载时检查对话次数
+  useEffect(() => {
+    // 等待用户信息加载完成
+    if (isProfileLoading) return;
+    
+    // 检查是否可以开始对话
+    if (!checkCanStartChat(isLoggedIn, userExtraInfo)) {
+      setShowNoQuotaDialog(true);
+    }
+  }, [isLoggedIn, userExtraInfo, isProfileLoading]);
 
   // 监听键盘弹起（移动端）
   useEffect(() => {
@@ -296,6 +313,15 @@ export default function Chat() {
         </p>
       </div>
       )}
+
+      {/* 对话次数不足弹窗 */}
+      <NoQuotaDialog 
+        isOpen={showNoQuotaDialog} 
+        onClose={() => {
+          setShowNoQuotaDialog(false);
+          navigate('/'); // 关闭弹窗时返回首页
+        }} 
+      />
     </div>
   );
 }

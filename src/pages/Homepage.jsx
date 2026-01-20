@@ -1,5 +1,7 @@
-import { Link } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useProfile, checkCanStartChat } from '../hooks/useProfile';
+import NoQuotaDialog from '../components/NoQuotaDialog';
 
 // 轮播文字配置
 const CAROUSEL_TEXTS = [
@@ -10,7 +12,21 @@ const CAROUSEL_TEXTS = [
 
 export default function Homepage() {
   const canvasRef = useRef(null);
+  const navigate = useNavigate();
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
+  const [showNoQuotaDialog, setShowNoQuotaDialog] = useState(false);
+  
+  // 获取用户信息
+  const { isLoggedIn, userExtraInfo } = useProfile();
+
+  // 检查是否可以开始对话
+  const handleStartChat = useCallback((mode) => {
+    if (!checkCanStartChat(isLoggedIn, userExtraInfo)) {
+      setShowNoQuotaDialog(true);
+      return;
+    }
+    navigate(`/chat?mode=${mode}`);
+  }, [isLoggedIn, userExtraInfo, navigate]);
 
   // 文字轮播效果
   useEffect(() => {
@@ -238,39 +254,37 @@ export default function Homepage() {
         <div className="fixed bottom-0 left-0 right-0 pb-12 pt-6 px-6 z-20">
           <div className="flex gap-3 items-center justify-center w-full max-w-md mx-auto">
             {/* 了解他人按钮 */}
-            <Link
-              to="/chat?mode=understand-others"
-              className="flex-1"
+            <button 
+              onClick={() => handleStartChat('understand-others')}
+              className="flex-1 h-14 rounded-full text-white text-base font-medium transition-all duration-300 active:scale-[0.99] hover:shadow-xl"
+              style={{
+                backgroundColor: '#1F2937',
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+              }}
             >
-              <button 
-                className="w-full h-14 rounded-full text-white text-base font-medium transition-all duration-300 active:scale-[0.99] hover:shadow-xl"
-                style={{
-                  backgroundColor: '#1F2937',
-                  boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
-                }}
-              >
-                了解他人
-              </button>
-            </Link>
+              了解他人
+            </button>
 
             {/* 发掘自己按钮 */}
-            <Link
-              to="/chat?mode=discover-self"
-              className="flex-1"
+            <button 
+              onClick={() => handleStartChat('discover-self')}
+              className="flex-1 h-14 rounded-full text-white text-base font-medium transition-all duration-300 active:scale-[0.99] hover:shadow-xl"
+              style={{
+                backgroundColor: '#1F2937',
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+              }}
             >
-              <button 
-                className="w-full h-14 rounded-full text-white text-base font-medium transition-all duration-300 active:scale-[0.99] hover:shadow-xl"
-                style={{
-                  backgroundColor: '#1F2937',
-                  boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
-                }}
-              >
-                发掘自己
-              </button>
-            </Link>
+              发掘自己
+            </button>
           </div>
         </div>
       </div>
+
+      {/* 对话次数不足弹窗 */}
+      <NoQuotaDialog 
+        isOpen={showNoQuotaDialog} 
+        onClose={() => setShowNoQuotaDialog(false)} 
+      />
     </div>
   );
 }

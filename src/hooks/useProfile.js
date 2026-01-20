@@ -1,7 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getReports, getUserExtraInfo, restartConversation } from '../api/profile';
-import { isLoggedIn} from '../utils/user';
+import { isLoggedIn } from '../utils/user';
+
+/**
+ * 检查用户是否有剩余对话次数
+ * @param {boolean} isUserLoggedIn - 是否已登录
+ * @param {object} userExtraInfo - 用户额外信息
+ * @returns {boolean} true: 可以对话, false: 次数不足
+ */
+export function checkCanStartChat(isUserLoggedIn, userExtraInfo) {
+  // 未登录用户可以对话（会在完成时提示登录）
+  if (!isUserLoggedIn) return true;
+  // 已登录用户检查剩余次数
+  const remaining = userExtraInfo?.remainingReport ?? 1;
+  return remaining > 0;
+}
 
 /**
  * Profile 页面数据 Hook - 管理用户资料、对话历史和裂变进度
