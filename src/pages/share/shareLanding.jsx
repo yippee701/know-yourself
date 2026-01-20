@@ -59,17 +59,7 @@ function SharerCard({ username }) {
 }
 
 // ========== 内容展示卡片 ==========
-function ContentCard({ content, modeLabel }) {
-  // 从报告内容中提取核心洞察（第一段或引用内容）
-  const extractQuote = (text) => {
-    if (!text) return '探索内心深处的自己';
-    // 尝试提取 markdown 引用内容
-    const quoteMatch = text.match(/>\s*(.+)/);
-    if (quoteMatch) return quoteMatch[1].slice(0, 50);
-    // 否则取前50个字符
-    return text.replace(/[#*>\[\]]/g, '').slice(0, 50) + '...';
-  };
-
+function ContentCard({ subTitle, content, modeLabel }) {
   const extractDescription = (text) => {
     if (!text) return '通过深度对话，发现你不曾察觉的一面。AI 陪伴你探索内心，记录成长轨迹，重塑自我认知。';
     // 移除 markdown 标记，取一段内容
@@ -79,7 +69,7 @@ function ContentCard({ content, modeLabel }) {
 
   return (
     <div 
-      className="w-full bg-white rounded-3xl p-8 mb-8 relative"
+      className="w-full bg-white rounded-3xl p-5 mb-8 relative"
       style={{ 
         boxShadow: '0 8px 30px rgba(107, 107, 255, 0.08)',
         minHeight: '400px',
@@ -108,7 +98,7 @@ function ContentCard({ content, modeLabel }) {
           className="text-2xl leading-relaxed text-indigo-500 mb-4"
           style={{ fontFamily: "'Noto Serif SC', serif" }}
         >
-          "{extractQuote(content)}"
+          "{subTitle}"
         </h1>
         <div 
           className="w-10 h-1 mx-auto rounded-full"
@@ -201,7 +191,8 @@ export default function ShareLanding() {
             content: res.content,
             username: res.username,
             title: res.title,
-            mode: res.mode
+            mode: res.mode,
+            subTitle: res.subTitle,
           });
         }
       } catch (err) {
@@ -237,7 +228,7 @@ export default function ShareLanding() {
         <SharerCard username={report?.username} />
 
         {/* 2. 内容展示卡片 */}
-        <ContentCard content={report?.content} modeLabel={modeLabel} />
+        <ContentCard subTitle={report?.subTitle} content={report?.content} modeLabel={modeLabel} />
 
         {/* 3. 主要 CTA 按钮 */}
         {report?.content && (
