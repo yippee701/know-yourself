@@ -1,6 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../contexts/cloudbaseContext';
+
+const COUNTDOWN_SECONDS = 60;
 
 // ========== 通用组件 ==========
 
@@ -139,6 +141,9 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [phone, setPhone] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verification, setVerification] = useState(null);
+  const [countdown, setCountdown] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -147,56 +152,96 @@ export default function RegisterPage() {
   const isValidUsername = username.length >= 3 && username.length <= 20 && /^[a-zA-Z0-9_]+$/.test(username);
   const isValidPassword = password.length >= 6;
   const isPasswordMatch = password === confirmPassword;
-  const isValidPhone = phone === '' || /^1[3-9]\d{9}$/.test(phone);
+  const isValidPhone = /^1[3-9]\d{9}$/.test(phone);
+  const isValidCode = verificationCode.length === 6;
   
-  const canSubmit = isValidUsername && isValidPassword && isPasswordMatch && isValidPhone;
+  const canSubmit = isValidUsername && isValidPassword && isPasswordMatch && isValidPhone && isValidCode;
+  const canSendCode = isValidPhone && countdown === 0;
+  const phoneNumber = phone ? `+86 ${phone}` : '';
+
+  // 倒计时
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
+  // 发送验证码
+  const handleSendCode = useCallback(async () => {
+    if (!canSendCode || !auth) return;
+    setError('');
+    try {
+      const verificationResult = await auth.getVerification({
+        phone_number: phoneNumber,
+      });
+      setVerification(verificationResult);
+      setCountdown(COUNTDOWN_SECONDS);
+    } catch (err) {
+      console.error('发送验证码失败:', err);
+      setError('验证码发送失败，请稍后重试');
+    }
+  }, [canSendCode, phoneNumber, auth]);
 
   // 注册
   const handleRegister = useCallback(async () => {
-    if (!canSubmit || loading) return;
-    
+    if (!canSubmit || loading || !auth) return;
+
     setError('');
     setSuccess('');
     setLoading(true);
     
     try {
+      // 先验证验证码
+      let verificationTokenRes = null;
+      if (verification && verificationCode) {
+        try {
+          verificationTokenRes = await auth.verify({
+            verification_id: verification.verification_id,
+            verification_code: verificationCode,
+          });
+        } catch (err) {
+          console.error('验证码验证错误:', err);
+          setError('验证码错误，请重新输入');
+          setLoading(false);
+          return;
+        }
+      }
+
+      // 注册
       const { data, error } = await auth.signUp({
-        phone_number: phone || '',
-        // TODO: verification_code: verificationCode,
-        // TODO: verification_token: verificationTokenRes.verification_token,
+        phone_number: phoneNumber,
+        verification_code: verificationCode,
+        verification_token: verificationTokenRes?.verification_token,
         name: username,
-        // 可选，设置密码
         password: password,
-        // 可选，设置登录用户名
-        username: "username",
+        username: username,
       });
-      
-      if (res.code && res.error) {
-        throw { code: res.code, message: res.error };
+
+      if (error) { 
+        console.error('注册错误:', error);
+        setError(error?.message || '注册失败，请稍后重试');
+        setLoading(false);
+        return;
       }
       
-      console.log('注册成功:', res);
+      console.log('注册成功:', data);
       setSuccess('注册成功！正在跳转...');
-      
+      setLoading(false);
+
       // 延迟跳转
       setTimeout(() => {
-        // 如果有返回地址，跳转到登录页并带上返回地址
         if (returnUrl) {
           navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}`);
         } else {
-        navigate('/login');
+          navigate('/login');
         }
       }, 1500);
-      
     } catch (err) {
       console.error('注册错误:', err);
-      const errorCode = err.code || err.status;
-      
       setError(err.message || err.error || '注册失败，请稍后重试');
-    } finally {
       setLoading(false);
     }
-  }, [canSubmit, loading, username, password, phone, navigate]);
+  }, [canSubmit, loading, username, password, phone, phoneNumber, verificationCode, verification, auth, returnUrl, navigate]);
 
   return (
     <div className="h-screen-safe w-full bg-white relative flex flex-col">
@@ -251,13 +296,42 @@ export default function RegisterPage() {
           />
           
           <InputField
-            label="手机号（选填）"
+            label="手机号"
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
-            placeholder="可用于短信登录"
+            placeholder="请输入手机号"
             disabled={loading}
+            prefix="+86"
           />
+          
+          {/* 验证码输入框 */}
+          <div className="mb-4">
+            <label className="block text-sm mb-2" style={{ color: '#4B5563' }}>验证码</label>
+            <div className="flex items-center px-4 py-3 rounded-xl" style={{ backgroundColor: 'rgba(249, 250, 251, 0.8)', border: '1px solid rgba(167, 139, 250, 0.2)' }}>
+              <input
+                type="text"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="请输入验证码"
+                disabled={loading}
+                maxLength={6}
+                className="flex-1 outline-none bg-transparent text-base tracking-widest"
+                style={{ fontFamily: '"Noto Sans SC", sans-serif', color: '#1F2937' }}
+              />
+              <button
+                onClick={handleSendCode}
+                disabled={!canSendCode || countdown > 0}
+                className="text-sm px-3 py-1.5 rounded-lg transition-all whitespace-nowrap"
+                style={{
+                  backgroundColor: canSendCode && countdown === 0 ? 'rgba(167, 139, 250, 0.15)' : 'transparent',
+                  color: canSendCode && countdown === 0 ? '#8B5CF6' : '#9CA3AF',
+                }}
+              >
+                {countdown > 0 ? `${countdown}s` : '获取验证码'}
+              </button>
+            </div>
+          </div>
           
           {/* 验证提示 */}
           {confirmPassword && !isPasswordMatch && (
