@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/cloudbaseContext';
 import { useProfile } from '../../../hooks/useProfile';
 import { useReport } from '../../../contexts/ReportContext';
+import { REPORT_STATUS } from '../../../constants/reportStatus';
 
 // ========== 子组件 ==========
 
@@ -138,9 +139,9 @@ function FissionBar({ userExtraInfo }) {
  */
 function ReportCard({ report, onRestart, onView }) {
   const { status, storageType, storageInfo, title, createdAt, content } = report;
-  const isExpired = status === 'expired';
-  const isGenerating = status === 'generating';
-  const canView = status === 'completed' && content;
+  const isExpired = status === REPORT_STATUS.EXPIRED;
+  const isGenerating = status === REPORT_STATUS.GENERATING;
+  const canView = status === REPORT_STATUS.COMPLETED;
   
   // 计算倒计时进度
   const countdownProgress = storageType === 'countdown' && storageInfo
@@ -474,7 +475,7 @@ export default function ProfilePage() {
             {/* 对话卡片列表 */}
             <div className="flex flex-col gap-4">
               {reports.map((report, index) => (
-                <div key={report.id}>
+                <div key={report.objectId}>
                   <ReportCard 
                     report={report} 
                     onRestart={handleRestart}
