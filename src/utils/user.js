@@ -1,13 +1,16 @@
+import { CLOUDBASE_ENV } from '../constants/global';
+
+const key = `user_info_${CLOUDBASE_ENV}`
 
 /**
  * 从 localStorage 获取当前用户名
  */
 export function getCurrentUsername() {
   try {
-    const bmobData = localStorage.getItem('bmob');
-    if (!bmobData) return null;
-    const parsed = JSON.parse(bmobData);
-    return parsed.username || null;
+    const localUserInfo = localStorage.getItem(key);
+    if (!localUserInfo) return null;
+    const parsed = JSON.parse(localUserInfo);
+    return parsed.content?.name || null;
   } catch {
     return null;
   }
@@ -18,10 +21,10 @@ export function getCurrentUsername() {
  */
 export function getCurrentUserObjectId() {
   try {
-    const bmobData = localStorage.getItem('bmob');
-    if (!bmobData) return null;
-    const parsed = JSON.parse(bmobData);
-    return parsed.objectId || null;
+    const localUserInfo = localStorage.getItem(key);
+    if (!localUserInfo) return null;
+    const parsed = JSON.parse(localUserInfo);
+    return parsed.content?.uid || null;
   } catch {
     return null;
   }
@@ -34,11 +37,11 @@ export function getCurrentUserObjectId() {
  */
 export function isLoggedIn() {
   try {
-    const bmobData = localStorage.getItem('bmob');
-    if (!bmobData) return false;
+    const localUserInfo = localStorage.getItem(key);
+    if (!localUserInfo) return false;
     
-    const parsed = JSON.parse(bmobData);
-    return parsed.sessionToken ? true : false;
+    const parsed = JSON.parse(localUserInfo);
+    return parsed.content ? true : false;
   } catch {
     return false;
   }
