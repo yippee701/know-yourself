@@ -19,7 +19,7 @@ if (urlParams.get('debug') === 'true') {
 }
 
 createRoot(document.getElementById('root')).render(
-  <StrictMode>
+  // <StrictMode>
     <App />
-  </StrictMode>,
+  // {/* </StrictMode>, */}
 )

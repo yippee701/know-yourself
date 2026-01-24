@@ -51,16 +51,48 @@ export function ReportProvider({ children }) {
 
   const updateUserRemainingReport = useCallback(async () => {
     try {
-      const reportId = getCurrentUserObjectId();
-      if (!reportId) throw new Error('获取用户 reportId 失败');
+      if (!rdb) {
+        return;
+      }
+      const username = getCurrentUsername();
+      // 先查询当前用户的剩余报告数
+      const { data: userData, error: queryError } = await rdb
+        .from('user_info')
+        .select('remainingReport')
+        .eq('username', username)
+        .single();
 
-      // TODO: 更新用户剩余报告
-      debugger
+      if (queryError) {
+        console.error('查询用户信息失败:', queryError);
+        throw queryError;
+      }
+
+      if (!userData) {
+        console.warn('用户信息不存在');
+        return;
+      }
+
+      // 将剩余报告数减1，但不能小于0
+      const currentRemaining = userData.remainingReport || 0;
+      const newRemaining = Math.max(0, currentRemaining - 1);
+
+      // 更新用户剩余报告数
+      const { error: updateError } = await rdb
+        .from('user_info')
+        .update({ remainingReport: newRemaining })
+        .eq('username', username);
+
+      if (updateError) {
+        console.error('更新用户剩余报告失败:', updateError);
+        throw updateError;
+      }
+
+      console.log(`用户剩余报告数已更新: ${currentRemaining} -> ${newRemaining}`);
     } catch (err) {
       console.error('更新用户剩余报告失败:', err);
       throw err;
     }
-  }, []);
+  }, [rdb]);
 
   // 保存报告到远端
   const saveReportToRemote = useCallback(async (report) => {
@@ -70,6 +102,15 @@ export function ReportProvider({ children }) {
       
       // 从报告内容中提取 h1 标题作为 subTitle
       const subTitle = extractReportSubTitle(report.content);
+      const generateReportId = () => {
+        // 随机生成一个 长度为 10 的字符串,包含 0-9a-f（16进制）
+        // 去掉开头的 "0."，然后取10位
+        let reportId = '';
+        while (reportId.length < 10) {
+          reportId += Math.random().toString(16).substring(2);
+        }
+        return reportId.substring(0, 10);
+      }
       
       // 从 content 中移除 h1 标题行（已单独存储为 subTitle）
       const contentWithoutTitle = (report.content || '').replace(/^#\s+.+\n?/m, '').trim();
@@ -79,9 +120,10 @@ export function ReportProvider({ children }) {
         username: username,
         title: report.title,
         subTitle: subTitle,
-        status: report.status,
+        status: REPORT_STATUS.COMPLETED,
         mode: report.mode,
         messages: JSON.stringify(report.messages || []),
+        reportId: generateReportId(),
       });
 
       if (error) {

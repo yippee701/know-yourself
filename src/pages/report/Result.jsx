@@ -2,7 +2,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useEffect, useCallback, useMemo, useState } from 'react';
 import XMarkdown from '@ant-design/x-markdown';
 import { useReport } from '../../contexts/ReportContext';
-import { generateReportTitle } from '../../utils/chat';
+import { generateReportTitle, extractReportSubTitle } from '../../utils/chat';
 import { getModeFromSearchParams } from '../../constants/modes';
 import { useToast } from '../../components/Toast';
 import ShareDialog from '../share/shareDialog';
@@ -385,6 +385,7 @@ export default function Result() {
   const { getReportDetail, content, isLoggedIn } = useReport();
   const rdb = useRdb();
   const [subTitle, setSubTitle] = useState('');
+  const [displayContent, setDisplayContent] = useState('');
   const { message } = useToast();
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
@@ -425,21 +426,34 @@ export default function Result() {
 
   // 加载报告内容
   useEffect(() => {
+    const currentSearchParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
+    const reportId = currentSearchParams.get('reportId');
+
+    // 情况1：从 ReportLoading 跳转过来，content 已在 ReportContext 中
+    if (content) {
+      // 从 content 中提取 subTitle
+      const extractedSubTitle = extractReportSubTitle(content);
+      setSubTitle(extractedSubTitle);
+      // 从 content 中移除 h1 标题行（已单独存储为 subTitle）
+      const contentWithoutTitle = content.replace(/^#\s+.+\n?/m, '').trim();
+      setDisplayContent(contentWithoutTitle);
+      setIsLoadingReport(false);
+      return;
+    }
+
+    // 情况2：从历史记录点击进来，需要从数据库拉取
     // 等待 rdb 和 getReportDetail 初始化完成
     if (!rdb || !getReportDetail) {
       return;
     }
 
+    if (!reportId) {
+      message.warning('报告 ID 不存在，无法查看');
+      navigate('/');
+      return;
+    }
+
     const loadReport = async () => {
-      const currentSearchParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
-      const reportId = currentSearchParams.get('reportId');    
-      
-      if (!reportId) {
-        message.warning('报告 ID 不存在，无法查看');
-        navigate('/');
-        return;
-      }
-      
       setIsLoadingReport(true);
       try {
         const reportDetail = await getReportDetail(reportId);
@@ -448,7 +462,9 @@ export default function Result() {
           navigate('/');
           return;
         }
-        setSubTitle(reportDetail.subTitle);
+        setSubTitle(reportDetail.subTitle || '');
+        // 从数据库获取的 content 已经移除了 h1 标题，直接使用
+        setDisplayContent(reportDetail.content || '');
       } catch (err) {
         console.error('加载报告失败:', err);
         message.error('加载报告失败，请稍后重试');
@@ -459,10 +475,10 @@ export default function Result() {
     };
 
     loadReport();
-  }, [navigate, getReportDetail, message, rdb]);
+  }, [navigate, getReportDetail, message, rdb, content]);
 
   // 没有内容时显示加载
-  if (isLoadingReport || !content) {
+  if (isLoadingReport || !displayContent) {
     return (
       <div className="h-screen-safe flex items-center justify-center bg-white">
         <p style={{ color: '#6B7280' }}>加载中...</p>
@@ -504,7 +520,7 @@ export default function Result() {
       {/* 内容区 */}
       <div className="flex-1 overflow-y-auto pb-[220px] px-3 relative z-10">
         <div className="max-w-md mx-auto py-3">
-          <ReportContent content={content} subTitle={subTitle} />
+          <ReportContent content={displayContent} subTitle={subTitle} />
         </div>
       </div>
 
