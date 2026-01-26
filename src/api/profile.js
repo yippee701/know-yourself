@@ -10,6 +10,43 @@ const IS_MOCK_MODE = true;
 // API 基础配置
 const API_BASE_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:80';
 
+// 缓存配置
+const CACHE_DURATION = 30 * 1000; // 30秒
+const cache = new Map();
+
+/**
+ * 获取缓存键
+ */
+function getCacheKey(rdb, table, params) {
+  return `${table}_${JSON.stringify(params)}`;
+}
+
+/**
+ * 检查缓存是否有效
+ */
+function getCachedData(cacheKey) {
+  const cached = cache.get(cacheKey);
+  if (!cached) return null;
+  
+  const now = Date.now();
+  if (now - cached.timestamp > CACHE_DURATION) {
+    cache.delete(cacheKey);
+    return null;
+  }
+  
+  return cached.data;
+}
+
+/**
+ * 设置缓存
+ */
+function setCachedData(cacheKey, data) {
+  cache.set(cacheKey, {
+    data,
+    timestamp: Date.now()
+  });
+}
+
 // ========== Mock 数据 ==========
 
 /**
@@ -64,15 +101,41 @@ export async function getUserExtraInfo(rdb) {
   if (!username) {
     return {};
   }
-  const { data, error } = await rdb.from("user_info").select('level, remainingReport, currentInvites').eq('username', username);
-
-  if (error) {
-    console.error('获取用户信息失败:', error);
+  
+  if (!rdb) {
+    console.warn('rdb 未初始化，无法获取用户信息');
     return {};
   }
+  
+  // 检查缓存
+  const cacheKey = getCacheKey(rdb, 'user_extra_info', { username });
+  const cached = getCachedData(cacheKey);
+  if (cached !== null) {
+    console.log('[getUserExtraInfo] 使用缓存数据');
+    return cached;
+  }
+  
+  try {
+    const { data, error } = await rdb
+      .from("user_info")
+      .select('level, remainingReport, currentInvites')
+      .eq('username', username);
 
-  return data[0] || {};
+    if (error) {
+      console.error('获取用户信息失败:', error);
+      return {};
+    }
 
+    const result = data[0] || {};
+    
+    // 设置缓存
+    setCachedData(cacheKey, result);
+    
+    return result;
+  } catch (err) {
+    console.error('获取用户信息失败:', err);
+    return {};
+  }
 }
 
 /**
@@ -90,12 +153,39 @@ export async function getReports(rdb) {
   if (!username) {
     return [];
   }
-
-  const { data, error } = await rdb.from("report").select('title, createdAt, status, reportId').eq('username', username);
-  if (error) {
-    console.error('获取对话历史失败:', error);
+  
+  if (!rdb) {
+    console.warn('rdb 未初始化，无法获取报告列表');
     return [];
   }
+  
+  // 检查缓存
+  const cacheKey = getCacheKey(rdb, 'reports', { username });
+  const cached = getCachedData(cacheKey);
+  if (cached !== null) {
+    console.log('[getReports] 使用缓存数据');
+    return cached;
+  }
+  
+  try {
+    const { data, error } = await rdb
+      .from("report")
+      .select('title, createdAt, status, reportId')
+      .eq('username', username);
+    
+    if (error) {
+      console.error('获取对话历史失败:', error);
+      return [];
+    }
 
-  return data || [];
+    const result = data || [];
+    
+    // 设置缓存
+    setCachedData(cacheKey, result);
+    
+    return result;
+  } catch (err) {
+    console.error('获取报告列表失败:', err);
+    return [];
+  }
 }

@@ -3,6 +3,7 @@ import { getCurrentUsername, getCurrentUserObjectId, isLoggedIn } from '../utils
 import { generateReportTitle, extractReportSubTitle } from '../utils/chat';
 import { useRdb } from './cloudbaseContext';
 import { REPORT_STATUS } from '../constants/reportStatus';
+import { getReportDetail } from '../api/report';
 
 const ReportContext = createContext(null);
 
@@ -364,41 +365,31 @@ export function ReportProvider({ children }) {
     }
   }, [isLoggedIn, saveReportToRemote, updateLocalReport]);
 
-  const getReportDetail = useCallback(async (reportId) => {
+  const getReportDetailWrapper = useCallback(async (reportId) => {
     if (!reportId) {
       console.warn('reportId 为空，无法获取报告内容');
-      return '';
+      return null;
     }
     if (!rdb) {
       console.warn('rdb 未初始化，无法获取报告内容');
-      return '';
+      return null;
     }
     
     try {
-      const { data, error } = await rdb.from('report').select('content, status, subTitle, username').eq('reportId', reportId);
-      if (error) {
-        console.error('获取报告内容失败:', error);
-        throw error;
+      const reportDetail = await getReportDetail(rdb, reportId);
+      
+      if (reportDetail) {
+        setReportState(prev => ({
+          ...prev,
+          content: reportDetail.content,
+          isComplete: reportDetail.isCompleted,
+        }));
       }
-      
-      if (!data || data.length === 0) {
-        console.warn('报告不存在:', reportId);
-        return '';
-      }
-      
-      const reportDetail = data[0] || '';
-      const isCompleted = data[0]?.status === REPORT_STATUS.COMPLETED;
-      
-      setReportState(prev => ({
-        ...prev,
-        content: reportDetail.content,
-        isComplete: isCompleted,
-      }));
       
       return reportDetail;
     } catch (err) {
       console.error('获取报告内容异常:', err);
-      return '';
+      return null;
     }
   }, [rdb]);
 
@@ -446,7 +437,7 @@ export function ReportProvider({ children }) {
       updateReportContent,
       completeReport,
       getPendingReport,
-      getReportDetail,
+      getReportDetail: getReportDetailWrapper,
       resumeReport,
       saveReportToLocal,
       saveReportToRemote,
