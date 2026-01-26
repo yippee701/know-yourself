@@ -6,36 +6,13 @@
 
 // Mock 数据导入 - 删除 mock 功能时，删除此行和 mockData.js 文件
 import { mockSendMessage } from './mockData';
-// 共用提示词
-import { 
-  DISCOVER_SELF_SYSTEM_PROMPT, 
-  UNDERSTAND_OTHERS_SYSTEM_PROMPT,
-  DISCOVER_SELF_WELCOME_MESSAGE,
-  UNDERSTAND_OTHERS_WELCOME_MESSAGE,
-} from './prompts';
+import { CREDENTIALS_LOCAL_STORAGE_KEY } from '../constants/global';
 
 // 聊天模式
 export const CHAT_MODES = {
   DISCOVER_SELF: 'discover-self',
   UNDERSTAND_OTHERS: 'understand-others',
 };
-
-// 根据模式获取系统提示词
-export function getSystemPrompt(mode) {
-  return mode === CHAT_MODES.UNDERSTAND_OTHERS 
-    ? UNDERSTAND_OTHERS_SYSTEM_PROMPT 
-    : DISCOVER_SELF_SYSTEM_PROMPT;
-}
-
-// 根据模式获取欢迎消息
-export function getWelcomeMessage(mode) {
-  return mode === CHAT_MODES.UNDERSTAND_OTHERS 
-    ? UNDERSTAND_OTHERS_WELCOME_MESSAGE 
-    : DISCOVER_SELF_WELCOME_MESSAGE;
-}
-
-// 兼容旧代码
-export { DISCOVER_SELF_WELCOME_MESSAGE as WELCOME_MESSAGE } from './prompts';
 
 // ========== 配置 ==========
 
@@ -81,18 +58,20 @@ export function typewriterEffect(text, onUpdate, speed = 30) {
   });
 }
 
-// ========== 代理模式 API ==========
-
-/**
- * 通过 Python 后端代理发送消息
- */
-async function sendMessageViaProxy(messages, onStream = null) {
-  const response = await fetch(`${PROXY_CONFIG.serverUrl}/chat`, {
+async function sendMessageViaProxy(messages, onStream = null, mode) {
+  const credentials = localStorage.getItem(CREDENTIALS_LOCAL_STORAGE_KEY);
+  const credentialsObj = JSON.parse(credentials);
+  const token = credentialsObj.access_token;
+  const response = await fetch(`https://inner-book-server-220939-8-1251129499.sh.run.tcloudbase.com/v1/cloudrun/inner-book-server/chat`, {
     method: 'POST',
+    mode: 'cors',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
     },
+    credentials: 'include',
     body: JSON.stringify({
+      mode,
       messages: messages.map(msg => ({
         role: msg.role,
         content: msg.content
@@ -106,7 +85,7 @@ async function sendMessageViaProxy(messages, onStream = null) {
     throw new Error(error.detail || `API 请求失败: ${response.status}`);
   }
 
-  // 流式输出
+  // 流式输出 - 使用云函数专用的处理函数
   if (onStream) {
     return handleStreamResponse(response, onStream);
   }
@@ -114,60 +93,6 @@ async function sendMessageViaProxy(messages, onStream = null) {
   // 非流式输出
   const data = await response.json();
   return data.content || '抱歉，我暂时无法回应。';
-}
-
-// ========== 直连模式 API ==========
-
-/**
- * 直接调用大模型 API
- * @param {Array} messages - 对话历史
- * @param {Function} onStream - 流式回调
- * @param {string} mode - 聊天模式
- */
-async function sendMessageDirect(messages, onStream = null, mode = CHAT_MODES.DISCOVER_SELF) {
-  if (!DIRECT_CONFIG.apiKey) {
-    throw new Error('直连模式需要配置 VITE_API_KEY 环境变量');
-  }
-
-  // 根据模式获取系统提示词
-  const systemPrompt = getSystemPrompt(mode);
-
-  // 构建请求消息（包含系统提示词）
-  const fullMessages = [
-    { role: 'system', content: systemPrompt },
-    ...messages.map(msg => ({
-      role: msg.role,
-      content: msg.content
-    }))
-  ];
-
-  const response = await fetch(`${DIRECT_CONFIG.baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${DIRECT_CONFIG.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: DIRECT_CONFIG.model,
-      messages: fullMessages,
-      stream: !!onStream,
-      max_tokens: DIRECT_CONFIG.maxTokens,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error?.message || `API 请求失败: ${response.status}`);
-  }
-
-  // 流式输出
-  if (onStream) {
-    return handleStreamResponse(response, onStream);
-  }
-
-  // 非流式输出
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || '抱歉，我暂时无法回应。';
 }
 
 // ========== 流式响应处理 ==========
@@ -250,15 +175,9 @@ export async function sendMessage(messages, onStream = null, mode = CHAT_MODES.D
   }
 
   try {
-    // 根据配置选择 API 模式
-    if (API_MODE === 'direct') {
-      console.log(`[Direct Mode] 直接调用大模型 API (${mode})`);
-      return await sendMessageDirect(messages, onStream, mode);
-    } else {
-      console.log(`[Proxy Mode] 通过后端代理调用 (${mode})`);
-      // TODO: 代理模式也需要传递 mode 参数给后端
-      return await sendMessageViaProxy(messages, onStream);
-    }
+    console.log(`[Proxy Mode] 通过后端代理调用 (${mode})`);
+    // TODO: 代理模式也需要传递 mode 参数给后端
+    return await sendMessageViaProxy(messages, onStream, mode);
   } catch (error) {
     console.error('API 调用失败:', error);
     throw error;
@@ -281,27 +200,23 @@ export async function sendMessageWithTypewriter(messages, onUpdate, typingSpeed 
 
   try {
     let content;
+
+    const response = await fetch(`${PROXY_CONFIG.serverUrl}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: messages.map(msg => ({ role: msg.role, content: msg.content })),
+        stream: false,
+      }),
+    });
     
-    if (API_MODE === 'direct') {
-      content = await sendMessageDirect(messages, null);
-    } else {
-      const response = await fetch(`${PROXY_CONFIG.serverUrl}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: messages.map(msg => ({ role: msg.role, content: msg.content })),
-          stream: false,
-        }),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.detail || `API 请求失败: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      content = data.content || '抱歉，我暂时无法回应。';
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `API 请求失败: ${response.status}`);
     }
+    
+    const data = await response.json();
+    content = data.content || '抱歉，我暂时无法回应。';
     
     // 使用打字机效果逐字显示
     await typewriterEffect(content, onUpdate, typingSpeed);
@@ -311,27 +226,4 @@ export async function sendMessageWithTypewriter(messages, onUpdate, typingSpeed 
     console.error('API 调用失败:', error);
     throw error;
   }
-}
-
-/**
- * 获取当前 API 模式
- */
-export function getApiMode() {
-  if (IS_MOCK_MODE) return 'mock';
-  return API_MODE;
-}
-
-/**
- * 获取当前配置信息（用于调试）
- */
-export function getApiConfig() {
-  return {
-    mode: getApiMode(),
-    proxy: API_MODE === 'proxy' ? { serverUrl: PROXY_CONFIG.serverUrl } : null,
-    direct: API_MODE === 'direct' ? { 
-      baseUrl: DIRECT_CONFIG.baseUrl,
-      model: DIRECT_CONFIG.model,
-      hasApiKey: !!DIRECT_CONFIG.apiKey,
-    } : null,
-  };
 }

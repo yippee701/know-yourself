@@ -166,9 +166,9 @@ const markdownComponents = {
     <p 
       className="text-base mb-4 -mt-3"
       style={{ color: '#666666' }}
-    >
+        >
       {children}
-    </p>
+        </p>
   ),
 
   // 四级标题 - 子章节
@@ -241,7 +241,7 @@ const markdownComponents = {
         >
           <div 
             className="absolute top-[3px] left-[3px] w-1 h-1 rounded-full"
-            style={{
+              style={{ 
               background: 'rgba(255,255,255,0.8)',
               filter: 'blur(1px)',
               }}
@@ -251,7 +251,7 @@ const markdownComponents = {
         <div 
           className="flex-1 text-[15px] leading-[1.7]"
           style={{ color: '#1F2937' }}
-        >
+            >
           {children}
         </div>
       </div>

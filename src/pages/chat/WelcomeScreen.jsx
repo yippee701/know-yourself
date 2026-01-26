@@ -1,5 +1,3 @@
-import { WELCOME_MESSAGE } from '../../api/chat';
-
 /**
  * 欢迎界面组件 - 显示欢迎消息和开始按钮（Quiet Luxury 风格）
  * @param {Function} onStart - 开始按钮点击回调
@@ -13,7 +11,7 @@ export default function WelcomeScreen({
   onResume, 
   onStartNew,
   hasPendingReport = false,
-  welcomeMessage = WELCOME_MESSAGE 
+  welcomeMessage,
 }) {
   return (
     <div className="flex-1 flex flex-col justify-center px-6 py-8 overflow-y-auto">
