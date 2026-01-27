@@ -4,6 +4,7 @@ import { generateReportTitle, extractReportSubTitle, cleanReportContent, generat
 import { useRdb, useAuth, useCloudbaseApp } from './cloudbaseContext';
 import { REPORT_STATUS } from '../constants/reportStatus';
 import { getReportDetail, verifyInviteCode } from '../api/report';
+import { useToast } from '../components/Toast';
 
 const ReportContext = createContext(null);
 
@@ -53,6 +54,7 @@ export function ReportProvider({ children }) {
   const rdb = useRdb();
   const auth = useAuth();
   const cloudbaseApp = useCloudbaseApp();
+  const { message: toastMessage } = useToast();
   const [reportState, setReportState] = useState({
     content: '',         // 报告内容（去除 [Report] 前缀）
     messages: [],        // 对话记录
@@ -69,6 +71,9 @@ export function ReportProvider({ children }) {
 
   // 防止重复保存到远端
   const isSavingRef = useRef(false);
+  
+  // 防止重复提示（记录是否已经提示过未完成报告）
+  const hasShownPendingReportToastRef = useRef(false);
   
   // 追踪最新的状态（解决闭包捕获旧值问题）
   const reportStateRef = useRef(reportState);
@@ -182,7 +187,6 @@ export function ReportProvider({ children }) {
 
   // 同步本地报告到远端（只同步已完成的报告，pending 状态的保留在本地）
   const syncLocalReportsToRemote = useCallback(async () => {
-    if (!isLoggedIn()) return;
     
     try {
       const localReports = JSON.parse(localStorage.getItem(LOCAL_REPORTS_KEY) || '[]');
@@ -192,11 +196,29 @@ export function ReportProvider({ children }) {
       const completedReports = localReports.filter(r => r.status === 'completed' && !r.synced);
       const pendingReports = localReports.filter(r => r.status !== 'completed' || r.synced);
       
+      // 如果有未完成的报告，但用户未登录，提示登录（只提示一次）
+      if (completedReports.length > 0 && !isLoggedIn()) {
+        if (!hasShownPendingReportToastRef.current) {
+          toastMessage.info('检测到你本地有仍未完成的报告，建议登录后自动保存到个人档案', 6000);
+          hasShownPendingReportToastRef.current = true;
+        }
+        return;
+      }
+      
+      // 如果已登录，重置提示标记（下次未登录时可以再次提示）
+      if (isLoggedIn()) {
+        hasShownPendingReportToastRef.current = false;
+      }
+      
       if (completedReports.length === 0) {
         console.log('没有需要同步的已完成报告');
         return;
       }
-      
+
+      if (!isLoggedIn()) {
+        return;
+      }
+
       console.log('正在同步已完成的报告到远端...', completedReports.length);
       
       for (const report of completedReports) {
@@ -214,7 +236,7 @@ export function ReportProvider({ children }) {
     } catch (err) {
       console.error('同步本地报告失败:', err);
     }
-  }, [saveReportToRemote]);
+  }, [saveReportToRemote, toastMessage]);
     
   // 检查登录状态并同步报告（供登录/注册成功后调用）
   const checkLoginAndSync = useCallback(async () => {
@@ -261,9 +283,7 @@ export function ReportProvider({ children }) {
 
   // 登录后自动同步本地报告
   useEffect(() => {
-    if (isLoggedIn()) {
-      syncLocalReportsToRemote();
-    }
+    syncLocalReportsToRemote();
   }, [syncLocalReportsToRemote]);
 
   // ========== 报告生命周期方法 ==========

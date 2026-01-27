@@ -15,8 +15,8 @@ import './index.css'
 function App() {
   return (
     <CloudbaseProvider>
-      <ReportProvider>
-        <ToastProvider>
+      <ToastProvider>
+        <ReportProvider>
           <Router>
             <Routes>
               <Route path="/" element={<Homepage />} />
@@ -29,8 +29,8 @@ function App() {
               <Route path="/share" element={<ShareLanding />} />
             </Routes>
           </Router>
-        </ToastProvider>
-      </ReportProvider>
+        </ReportProvider>
+      </ToastProvider>
     </CloudbaseProvider>
   )
 }
