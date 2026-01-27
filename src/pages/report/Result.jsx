@@ -2,7 +2,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useEffect, useCallback, useMemo, useState } from 'react';
 import XMarkdown from '@ant-design/x-markdown';
 import { useReport } from '../../contexts/ReportContext';
-import { generateReportTitle, extractReportSubTitle, cleanReportContent } from '../../utils/chat';
+import { generateReportTitle} from '../../utils/chat';
 import { getModeFromSearchParams } from '../../constants/modes';
 import { useToast } from '../../components/Toast';
 import ShareDialog from '../share/shareDialog';
@@ -382,9 +382,8 @@ function LoginOverlay({ onLogin, registerUrl }) {
 export default function Result() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { getReportDetail, content, isLoggedIn } = useReport();
+  const { getReportDetail, content, subTitle, isLoggedIn } = useReport();
   const rdb = useRdb();
-  const [subTitle, setSubTitle] = useState('');
   const [displayContent, setDisplayContent] = useState('');
   const { message } = useToast();
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
@@ -430,9 +429,8 @@ export default function Result() {
     const reportId = currentSearchParams.get('reportId');
 
     // 情况1：从 ReportLoading 跳转过来 或者已经拉取过一次了
-    if (content && subTitle) {
+    if (content) {
       setDisplayContent(content);
-      setSubTitle(subTitle);
       setIsLoadingReport(false);
       return;
     }
@@ -458,7 +456,6 @@ export default function Result() {
           navigate('/');
           return;
         }
-        setSubTitle(reportDetail.subTitle || '');
         // 从数据库获取的 content 已经移除了 h1 标题，直接使用
         setDisplayContent(reportDetail.content || '');
       } catch (err) {
@@ -471,7 +468,7 @@ export default function Result() {
     };
 
     loadReport();
-  }, [navigate, getReportDetail, message, rdb, content]);
+  }, [navigate, getReportDetail, message, rdb, content, subTitle]);
 
   // 没有内容时显示加载
   if (isLoadingReport || !displayContent) {

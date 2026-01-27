@@ -17,7 +17,7 @@ export function getCurrentUsername() {
 /**
  * 从 localStorage 获取当前用户 reportId
  */
-export function getCurrentUserObjectId() {
+export function getCurrentUserId() {
   try {
     const localUserInfo = localStorage.getItem(USER_INFO_LOCAL_STORAGE_KEY);
     if (!localUserInfo) return null;

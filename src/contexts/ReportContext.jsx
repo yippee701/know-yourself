@@ -1,9 +1,11 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import { getCurrentUsername, isLoggedIn } from '../utils/user';
-import { generateReportTitle, extractReportSubTitle, cleanReportContent } from '../utils/chat';
-import { useRdb } from './cloudbaseContext';
+import { getCurrentUsername, isLoggedIn, getCurrentUserId } from '../utils/user';
+import { generateReportTitle, extractReportSubTitle, cleanReportContent, generateReportId } from '../utils/chat';
+import { useRdb, useAuth } from './cloudbaseContext';
 import { REPORT_STATUS } from '../constants/reportStatus';
-import { getReportDetail } from '../api/report';
+import { getReportDetail, verifyInviteCode, unlockReport } from '../api/report';
+import InviteCodeDialog from '../components/inviteCodeDialog';
+import InviteLoginDialog from '../components/inviteLoginDialog';
 
 const ReportContext = createContext(null);
 
@@ -12,34 +14,61 @@ const LOCAL_REPORTS_KEY = 'pendingReports';
 
 /*
 1. 开始对话
-   └─ createReport() → 保存到本地 (status: generating)
+   └─  createReport() → 保存到本地，并且同步到远端，report.lock=1 report.status=pending
+      └─ 如果已登录，保存一下 username 和 _openid
+      └─ 如果未登录，也要同步到远端，但是不保存 username 和 _openid
 
 2. 对话过程中
    └─ updateMessages() → 实时更新本地 messages
 
 3. 报告生成完成
    └─ completeReport()
-       ├─ 更新本地 (status: completed, 包含 content + messages)
-       └─ 如果已登录 → saveReportToRemote() 保存到远端 (包含 messages)
-                     └─ 成功后从本地删除
+      └─ 更新本地 (status: completed, 包含 content + subTitle + messages)
+      └─ 更新远端 (包含 content + subTitle + messages，report.lock=1 report.status=completed)
+        └─ 如果已登录 → 保存一下 username 和 _openid
+        └─ 如果未登录，也要同步到远端，但是不保存 username 和 _openid
+      └─ 提示输入邀请码，使用 inviteCodeDialog 组件
+      └─ 输入邀请码后，验证邀请码是否有效
+        └─ 如果有效，则 report.lock=0 report.inviteCode=邀请码 (会在服务端服务实现解锁逻辑)
+        └─ 如果无效，则提示邀请码无效
+      └─ 解锁后可以查看报告
+        └─ 如果未登录，则弹出 inviteLoginDialog 组件，邀请登录
+        └─ 如果已登录 → 保存一下 username 和 _openid
 
 4. 登录后自动同步
    └─ syncLocalReportsToRemote()
-       ├─ 只同步 status === 'completed' 的报告 (包含 messages)
-       └─ 保留 status === 'generating' 的报告在本地
+       ├─ 只同步 status === 'completed' 的报告 (包含 messages)，保存 username 和 _openid
+       └─ 保留 status === 'pending' 的报告在本地
+
+5. 报告详情页
+   └─ 查看报告详情
+      └─ 如果报告未解锁，则弹出 inviteCodeDialog 组件，邀请输入邀请码
+      └─ 输入邀请码后，验证邀请码是否有效
+        └─ 如果有效，则 report.lock=0 report.inviteCode=邀请码 (会在服务端服务实现解锁逻辑)
+        └─ 如果无效，则提示邀请码无效
+      └─ 解锁后可以查看报告
+        └─ 如果未登录，则弹出 inviteLoginDialog 组件，邀请登录
+        └─ 如果已登录 → 保存一下 username 和 _openid
 */
 
 export function ReportProvider({ children }) {
   const rdb = useRdb();
+  const auth = useAuth();
   const [reportState, setReportState] = useState({
     content: '',         // 报告内容（去除 [Report] 前缀）
     messages: [],        // 对话记录
     isGenerating: false, // 正在生成中
     isComplete: false,   // 生成完成
     isFromHistory: false, // 是否来自历史报告
-    currentReportId: null, // 当前报告的本地 ID
+    currentReportId: null, // 当前报告的 ID（统一使用 reportId）
     currentMode: null,   // 当前报告的模式
   });
+  
+  // 对话框状态
+  const [showInviteCodeDialog, setShowInviteCodeDialog] = useState(false);
+  const [showInviteLoginDialog, setShowInviteLoginDialog] = useState(false);
+  const [isVerifyingInviteCode, setIsVerifyingInviteCode] = useState(false);
+  const [pendingUnlockReportId, setPendingUnlockReportId] = useState(null);
 
   // 防止重复保存到远端
   const isSavingRef = useRef(false);
@@ -50,108 +79,112 @@ export function ReportProvider({ children }) {
     reportStateRef.current = reportState;
   }, [reportState]);
 
-  const updateUserRemainingReport = useCallback(async () => {
-    try {
-      if (!rdb) {
-        return;
-      }
-      const username = getCurrentUsername();
-      // 先查询当前用户的剩余报告数
-      const { data: userData, error: queryError } = await rdb
-        .from('user_info')
-        .select('remainingReport')
-        .eq('username', username)
-        .single();
+  // const updateUserRemainingReport = useCallback(async () => {
+  //   try {
+  //     if (!rdb) {
+  //       return;
+  //     }
+  //     const username = getCurrentUsername();
+  //     // 先查询当前用户的剩余报告数
+  //     const { data: userData, error: queryError } = await rdb
+  //       .from('user_info')
+  //       .select('remainingReport')
+  //       .eq('username', username)
+  //       .single();
 
-      if (queryError) {
-        console.error('查询用户信息失败:', queryError);
-        throw queryError;
-      }
+  //     if (queryError) {
+  //       console.error('查询用户信息失败:', queryError);
+  //       throw queryError;
+  //     }
 
-      if (!userData) {
-        console.warn('用户信息不存在');
-        return;
-      }
+  //     if (!userData) {
+  //       console.warn('用户信息不存在');
+  //       return;
+  //     }
 
-      // 将剩余报告数减1，但不能小于0
-      const currentRemaining = userData.remainingReport || 0;
-      const newRemaining = Math.max(0, currentRemaining - 1);
+  //     // 将剩余报告数减1，但不能小于0
+  //     const currentRemaining = userData.remainingReport || 0;
+  //     const newRemaining = Math.max(0, currentRemaining - 1);
 
-      // 更新用户剩余报告数
-      const { error: updateError } = await rdb
-        .from('user_info')
-        .update({ remainingReport: newRemaining })
-        .eq('username', username);
+  //     // 更新用户剩余报告数
+  //     const { error: updateError } = await rdb
+  //       .from('user_info')
+  //       .update({ remainingReport: newRemaining })
+  //       .eq('username', username);
 
-      if (updateError) {
-        console.error('更新用户剩余报告失败:', updateError);
-        throw updateError;
-      }
+  //     if (updateError) {
+  //       console.error('更新用户剩余报告失败:', updateError);
+  //       throw updateError;
+  //     }
 
-      console.log(`用户剩余报告数已更新: ${currentRemaining} -> ${newRemaining}`);
-    } catch (err) {
-      console.error('更新用户剩余报告失败:', err);
-      throw err;
-    }
-  }, [rdb]);
+  //     console.log(`用户剩余报告数已更新: ${currentRemaining} -> ${newRemaining}`);
+  //   } catch (err) {
+  //     console.error('更新用户剩余报告失败:', err);
+  //     throw err;
+  //   }
+  // }, [rdb]);
 
   // 保存报告到远端
-  const saveReportToRemote = useCallback(async (report) => {
+  const saveReportToRemote = useCallback(async (report, options = {}) => {
     try {
-      const username = getCurrentUsername();
-      if (!username) throw new Error('未获取到用户名');
-      
-      // 从报告内容中提取 h1 标题作为 subTitle
-      const subTitle = extractReportSubTitle(report.content);
-      const generateReportId = () => {
-        // 随机生成一个 长度为 10 的字符串,包含 0-9a-f（16进制）
-        // 去掉开头的 "0."，然后取10位
-        let reportId = '';
-        while (reportId.length < 10) {
-          reportId += Math.random().toString(16).substring(2);
-        }
-        return reportId.substring(0, 10);
+      if (!rdb) {
+        throw new Error('rdb 未初始化');
       }
       
-      const { data, error } = await rdb.from('report').insert({
+      const {
+        status = REPORT_STATUS.PENDING,
+        lock = 1,
+        saveUserInfo = false, // 是否保存用户信息
+      } = options;
+      
+      const username = saveUserInfo ? getCurrentUsername() : null;
+      const openId = saveUserInfo ? getCurrentUserId() : null;
+      
+      const subTitle = report.subTitle;
+      const reportId = report.reportId;
+      
+      if (!reportId) {
+        throw new Error('reportId 不能为空');
+      }
+      
+      const insertData = {
         content: cleanReportContent(report.content) || '',
-        username: username,
         title: report.title,
-        subTitle: subTitle,
-        status: REPORT_STATUS.COMPLETED,
+        subTitle: subTitle || '',
+        status: status,
         mode: report.mode,
         messages: JSON.stringify(report.messages || []),
-        reportId: generateReportId(),
-      });
+        reportId: reportId,
+        lock: lock,
+      };
+      
+      // 如果已登录且需要保存用户信息，则添加 username 和 _openid
+      if (saveUserInfo && username) {
+        insertData.username = username;
+      }
+      if (saveUserInfo && openId) {
+        insertData._openid = openId;
+      }
+      
+      const { data, error } = await rdb.from('report').insert(insertData);
 
       if (error) {
         console.error('报告保存到远端失败:', error);
         throw error;
       }
 
-      console.log('报告保存到远端成功:', data, 'subTitle:', subTitle);
+      console.log('报告保存到远端成功:', data, 'status:', status, 'lock:', lock);
 
-      // 改用邀请码逻辑，暂时不需要更新剩余次数
-      // await updateUserRemainingReport();
-
-      // 把报告 id 拼到 url 参数上
-      const reportId = data?.[0]?._id || data?.[0]?.id;
-      if (reportId) {
-        const routePath = `/report-result?mode=${report.mode}&reportId=${reportId}`;
-        // 只修改 location.hash，不进行跳转
-        window.location.hash = routePath;
-      }
-
-      return data;
+      return { data, reportId };
     } catch (err) {
       console.error('报告保存到远端失败:', err);
       throw err;
     }
-  }, [rdb, updateUserRemainingReport]);
+  }, [rdb, auth]);
 
-  // 同步本地报告到远端（只同步已完成的报告，generating 状态的保留在本地）
+  // 同步本地报告到远端（只同步已完成的报告，pending 状态的保留在本地）
   const syncLocalReportsToRemote = useCallback(async () => {
-    if (!isLoggedIn) return;
+    if (!isLoggedIn()) return;
     
     try {
       const localReports = JSON.parse(localStorage.getItem(LOCAL_REPORTS_KEY) || '[]');
@@ -169,7 +202,11 @@ export function ReportProvider({ children }) {
       console.log('正在同步已完成的报告到远端...', completedReports.length);
       
       for (const report of completedReports) {
-        await saveReportToRemote(report);
+        await saveReportToRemote(report, {
+          status: REPORT_STATUS.COMPLETED,
+          lock: 1,
+          saveUserInfo: true, // 登录后同步，保存 username 和 _openid
+        });
         console.log('已同步报告:', report.title, '消息数:', report.messages?.length || 0);
       }
       
@@ -195,7 +232,7 @@ export function ReportProvider({ children }) {
   const saveReportToLocal = useCallback((report) => {
     try {
       const existingReports = JSON.parse(localStorage.getItem(LOCAL_REPORTS_KEY) || '[]');
-      const index = existingReports.findIndex(r => r.localId === report.localId);
+      const index = existingReports.findIndex(r => r.reportId === report.reportId);
       if (index >= 0) {
         existingReports[index] = report;
       } else {
@@ -209,15 +246,15 @@ export function ReportProvider({ children }) {
   }, []);
 
   // 更新本地报告
-  const updateLocalReport = useCallback((localId, updates) => {
+  const updateLocalReport = useCallback((reportId, updates) => {
     try {
       const existingReports = JSON.parse(localStorage.getItem(LOCAL_REPORTS_KEY) || '[]');
-      const index = existingReports.findIndex(r => r.localId === localId);
+      const index = existingReports.findIndex(r => r.reportId === reportId);
       if (index >= 0) {
         existingReports[index] = { ...existingReports[index], ...updates };
         localStorage.setItem(LOCAL_REPORTS_KEY, JSON.stringify(existingReports));
       } else {
-        console.warn('未找到本地报告:', localId);
+        console.warn('未找到本地报告:', reportId);
       }
     } catch (err) {
       console.error('更新本地报告失败:', err);
@@ -226,25 +263,25 @@ export function ReportProvider({ children }) {
 
   // 登录后自动同步本地报告
   useEffect(() => {
-    if (isLoggedIn) {
+    if (isLoggedIn()) {
       syncLocalReportsToRemote();
     }
-  }, [isLoggedIn, syncLocalReportsToRemote]);
+  }, [syncLocalReportsToRemote]);
 
   // ========== 报告生命周期方法 ==========
 
   // 创建报告（开始对话时调用）
-  // 对话过程中始终先保存在本地，完成后再同步到远端
+  // 保存到本地，并且同步到远端，report.lock=1 report.status=pending
   const createReport = useCallback(async (mode) => {
     const title = generateReportTitle(mode);
-    const localId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const reportId = generateReportId();
     
     const report = {
-      localId,
+      reportId,
       title,
       content: '',
       messages: [],
-      status: 'generating',
+      status: 'pending',
       mode,
       createdAt: new Date().toISOString(),
       synced: false,
@@ -253,7 +290,7 @@ export function ReportProvider({ children }) {
     // 更新状态
     setReportState(prev => ({
       ...prev,
-      currentReportId: localId,
+      currentReportId: reportId,
       currentMode: mode,
       messages: [],
       content: '',
@@ -262,11 +299,24 @@ export function ReportProvider({ children }) {
       isFromHistory: false,
     }));
 
-    // 对话过程中始终先保存到本地，方便实时更新
+    // 保存到本地
     saveReportToLocal(report);
 
-    return localId;
-  }, [saveReportToLocal]);
+    // 同步到远端（无论是否登录）
+    try {
+      const loggedIn = isLoggedIn();
+      await saveReportToRemote(report, {
+        status: REPORT_STATUS.PENDING,
+        lock: 1,
+        saveUserInfo: loggedIn, // 如果已登录，保存 username 和 _openid
+      });
+      console.log('报告已同步到远端 (pending, lock=1)');
+    } catch (err) {
+      console.error('同步报告到远端失败，保留本地记录:', err);
+    }
+
+    return reportId;
+  }, [saveReportToLocal, saveReportToRemote]);
 
   // 开始生成报告（跳转到 loading 页面时）
   const startReport = useCallback(() => {
@@ -301,6 +351,46 @@ export function ReportProvider({ children }) {
     }));
   }, []);
 
+  // 处理邀请码验证
+  const handleInviteCodeSubmit = useCallback(async (inviteCode) => {
+    setIsVerifyingInviteCode(true);
+    try {
+      // 验证邀请码
+      await verifyInviteCode(rdb, inviteCode);
+      
+      // 解锁报告
+      const reportId = pendingUnlockReportId || reportState.currentReportId;
+      if (reportId) {
+        await unlockReport(rdb, reportId, inviteCode);
+        console.log('报告已解锁:', reportId);
+      }
+      
+      setShowInviteCodeDialog(false);
+      setPendingUnlockReportId(null);
+      
+      // 解锁后，如果未登录，弹出登录对话框
+      if (!isLoggedIn()) {
+        const returnUrl = window.location.hash.replace('#', '');
+        setShowInviteLoginDialog(true);
+      } else {
+        // 如果已登录，更新报告的用户信息
+        const username = getCurrentUsername();
+        const openId = getCurrentUserId();
+        if (reportId && username && openId) {
+          await rdb
+            .from('report')
+            .update({ username, _openid: openId })
+            .eq('reportId', reportId);
+        }
+      }
+    } catch (err) {
+      console.error('邀请码验证失败:', err);
+      throw err;
+    } finally {
+      setIsVerifyingInviteCode(false);
+    }
+  }, [rdb, auth, pendingUnlockReportId, reportState.currentReportId]);
+
   // 完成报告生成
   const completeReport = useCallback(async () => {
     // 防止严格模式下重复调用
@@ -314,6 +404,7 @@ export function ReportProvider({ children }) {
     const reportId = currentState.currentReportId;
     const reportContent = currentState.content;
     const reportMessages = currentState.messages;
+    const subTitle = currentState.subTitle;
 
     console.log('completeReport - reportId:', reportId, 'content length:', reportContent?.length);
 
@@ -330,6 +421,7 @@ export function ReportProvider({ children }) {
       
       const reportUpdate = {
         content: reportContent,
+        subTitle: subTitle,
         messages: reportMessages,
         status: 'completed',
       };
@@ -337,31 +429,38 @@ export function ReportProvider({ children }) {
       // 先更新本地
       updateLocalReport(reportId, reportUpdate);
 
-      // 如果已登录，同步到远端
-      if (isLoggedIn) {
-        try {
-          const localReports = JSON.parse(localStorage.getItem(LOCAL_REPORTS_KEY) || '[]');
-          const currentReport = localReports.find(r => r.localId === reportId);
+      // 同步到远端（无论是否登录）
+      try {
+        const localReports = JSON.parse(localStorage.getItem(LOCAL_REPORTS_KEY) || '[]');
+        const currentReport = localReports.find(r => r.reportId === reportId);
+        
+        if (currentReport) {
+          const loggedIn = isLoggedIn();
+          await saveReportToRemote({
+            ...currentReport,
+            ...reportUpdate,
+          }, {
+            status: REPORT_STATUS.COMPLETED,
+            lock: 1,
+            saveUserInfo: loggedIn, // 如果已登录，保存 username 和 _openid
+          });
           
-          if (currentReport) {
-            await saveReportToRemote({
-              ...currentReport,
-              ...reportUpdate,
-            });
-            
-            // 同步成功后，从本地删除这条记录
-            const updatedReports = localReports.filter(r => r.localId !== reportId);
-            localStorage.setItem(LOCAL_REPORTS_KEY, JSON.stringify(updatedReports));
-            console.log('报告已同步到远端并清除本地缓存');
-          }
-        } catch (err) {
-          console.error('同步到远端失败，保留本地记录:', err);
+          // 同步成功后，从本地删除这条记录
+          const updatedReports = localReports.filter(r => r.reportId !== reportId);
+          localStorage.setItem(LOCAL_REPORTS_KEY, JSON.stringify(updatedReports));
+          console.log('报告已同步到远端 (completed, lock=1)');
+          
+          // 提示输入邀请码
+          setPendingUnlockReportId(reportId);
+          setShowInviteCodeDialog(true);
         }
+      } catch (err) {
+        console.error('同步到远端失败，保留本地记录:', err);
       }
       
       isSavingRef.current = false; // 重置保存状态
     }
-  }, [isLoggedIn, saveReportToRemote, updateLocalReport]);
+  }, [saveReportToRemote, updateLocalReport]);
 
   const getReportDetailWrapper = useCallback(async (reportId) => {
     if (!reportId) {
@@ -382,7 +481,14 @@ export function ReportProvider({ children }) {
           content: reportDetail.content,
           subTitle: reportDetail.subTitle,
           isComplete: reportDetail.isCompleted,
+          currentReportId: reportId,
         }));
+        
+        // 如果报告未解锁，弹出邀请码对话框
+        if (reportDetail.isLocked) {
+          setPendingUnlockReportId(reportId);
+          setShowInviteCodeDialog(true);
+        }
       }
       
       return reportDetail;
@@ -396,9 +502,9 @@ export function ReportProvider({ children }) {
   const getPendingReport = useCallback((mode) => {
     try {
       const localReports = JSON.parse(localStorage.getItem(LOCAL_REPORTS_KEY) || '[]');
-      // 查找该模式下状态为 generating 的报告
+      // 查找该模式下状态为 pending 的报告
       const pendingReport = localReports.find(
-        r => r.mode === mode && r.status === 'generating'
+        r => r.mode === mode && r.status === 'pending'
       );
       return pendingReport || null;
     } catch (err) {
@@ -413,7 +519,7 @@ export function ReportProvider({ children }) {
 
     setReportState(prev => ({
       ...prev,
-      currentReportId: report.localId,
+      currentReportId: report.reportId,
       currentMode: report.mode,
       messages: report.messages || [],
       content: report.content || '',
@@ -429,7 +535,7 @@ export function ReportProvider({ children }) {
   return (
     <ReportContext.Provider value={{
       ...reportState,
-      isLoggedIn,
+      isLoggedIn: isLoggedIn(),
       createReport,
       startReport,
       updateMessages,
@@ -444,6 +550,24 @@ export function ReportProvider({ children }) {
       checkLoginAndSync, // 供登录/注册成功后调用
     }}>
       {children}
+      
+      {/* 邀请码对话框 */}
+      <InviteCodeDialog
+        isOpen={showInviteCodeDialog}
+        onClose={() => {
+          setShowInviteCodeDialog(false);
+          setPendingUnlockReportId(null);
+        }}
+        onSubmit={handleInviteCodeSubmit}
+        isLoading={isVerifyingInviteCode}
+      />
+      
+      {/* 邀请登录对话框 */}
+      <InviteLoginDialog
+        isOpen={showInviteLoginDialog}
+        onClose={() => setShowInviteLoginDialog(false)}
+        returnUrl={window.location.hash.replace('#', '')}
+      />
     </ReportContext.Provider>
   );
 }

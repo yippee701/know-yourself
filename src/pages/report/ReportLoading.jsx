@@ -148,7 +148,7 @@ export default function ReportLoading() {
   const REPORT_TOTAL_CHARS = 3000;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { isComplete, content } = useReport();
+  const { isComplete, content, currentReportId } = useReport();
   
   // 从 URL 参数获取模式
   const mode = useMemo(() => getModeFromSearchParams(searchParams), [searchParams]);
@@ -160,9 +160,9 @@ export default function ReportLoading() {
   // 报告生成完成后跳转到结果页
   useEffect(() => {
     if (isComplete && content) {
-      navigate(`/report-result?mode=${mode}`);
+      navigate(`/report-result?mode=${mode}&reportId=${currentReportId}`);
     }
-  }, [isComplete, content, navigate, mode]);
+  }, [isComplete, content, navigate, mode, currentReportId]);
 
   return (
     <div className="h-screen-safe w-full bg-white flex flex-col overflow-hidden relative">

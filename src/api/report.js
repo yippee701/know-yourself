@@ -4,6 +4,62 @@
 
 import { REPORT_STATUS } from '../constants/reportStatus';
 
+/**
+ * 验证邀请码
+ */
+export async function verifyInviteCode(rdb, inviteCode) {
+  if (!rdb) {
+    throw new Error('rdb 未初始化');
+  }
+  
+  // TODO: 这里应该调用服务端 API 验证邀请码
+  // 暂时先简单验证格式（实际应该调用后端接口）
+  if (!inviteCode || inviteCode.length < 4) {
+    throw new Error('邀请码格式不正确');
+  }
+  
+  // 模拟验证（实际应该调用后端）
+  // const response = await fetch('/api/invite/verify', {
+  //   method: 'POST',
+  //   body: JSON.stringify({ inviteCode })
+  // });
+  
+  return { valid: true }; // 暂时返回 true
+}
+
+/**
+ * 解锁报告
+ */
+export async function unlockReport(rdb, reportId, inviteCode) {
+  if (!rdb) {
+    throw new Error('rdb 未初始化');
+  }
+  
+  if (!reportId) {
+    throw new Error('reportId 不能为空');
+  }
+  
+  try {
+    const { data, error } = await rdb
+      .from('report')
+      .update({
+        lock: 0,
+        inviteCode: inviteCode
+      })
+      .eq('reportId', reportId);
+    
+    if (error) {
+      console.error('解锁报告失败:', error);
+      throw error;
+    }
+    
+    return data;
+  } catch (err) {
+    console.error('解锁报告失败:', err);
+    throw err;
+  }
+}
+
 // 缓存配置
 const CACHE_DURATION = 300 * 1000; // 5分钟
 const cache = new Map();
@@ -66,7 +122,7 @@ export async function getReportDetail(rdb, reportId) {
   try {
     const { data, error } = await rdb
       .from('report')
-      .select('content, status, subTitle, username')
+      .select('content, status, subTitle, username, lock, inviteCode')
       .eq('reportId', reportId);
     
     if (error) {
@@ -85,7 +141,10 @@ export async function getReportDetail(rdb, reportId) {
       status: reportDetail.status,
       subTitle: reportDetail.subTitle || '',
       username: reportDetail.username,
-      isCompleted: reportDetail.status === REPORT_STATUS.COMPLETED
+      lock: reportDetail.lock !== undefined ? reportDetail.lock : 1, // 默认锁定
+      inviteCode: reportDetail.inviteCode || '',
+      isCompleted: reportDetail.status === REPORT_STATUS.COMPLETED,
+      isLocked: reportDetail.lock !== undefined ? reportDetail.lock === 1 : true
     };
     
     // 设置缓存
