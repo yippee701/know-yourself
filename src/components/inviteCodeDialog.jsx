@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 /**
  * 邀请码输入对话框
@@ -6,6 +7,7 @@ import { useState } from 'react';
 export default function InviteCodeDialog({ isOpen, onClose, onSubmit, isLoading = false }) {
   const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   if (!isOpen) return null;
 
@@ -30,6 +32,7 @@ export default function InviteCodeDialog({ isOpen, onClose, onSubmit, isLoading 
     setInviteCode('');
     setError('');
     onClose();
+    navigate('/');
   };
 
   return (

@@ -7,61 +7,24 @@ import { REPORT_STATUS } from '../constants/reportStatus';
 /**
  * 验证邀请码
  */
-export async function verifyInviteCode(rdb, inviteCode) {
-  if (!rdb) {
-    throw new Error('rdb 未初始化');
+export async function verifyInviteCode(cloudbaseApp , inviteCode, reportId) {
+  if (!cloudbaseApp) {
+    throw new Error('cloudbaseApp 未初始化');
   }
-  
-  // TODO: 这里应该调用服务端 API 验证邀请码
-  // 暂时先简单验证格式（实际应该调用后端接口）
-  if (!inviteCode || inviteCode.length < 4) {
-    throw new Error('邀请码格式不正确');
-  }
-  
-  // 模拟验证（实际应该调用后端）
-  // const response = await fetch('/api/invite/verify', {
-  //   method: 'POST',
-  //   body: JSON.stringify({ inviteCode })
-  // });
-  
-  return { valid: true }; // 暂时返回 true
-}
+  const result = await cloudbaseApp.callFunction({
+    name: 'invite-code',
+    data: {
+      action: 'consume',
+      reportId: reportId,
+      inviteCode: inviteCode,
+    },
+  });
 
-/**
- * 解锁报告
- */
-export async function unlockReport(rdb, reportId, inviteCode) {
-  if (!rdb) {
-    throw new Error('rdb 未初始化');
-  }
-  
-  if (!reportId) {
-    throw new Error('reportId 不能为空');
-  }
-  
-  try {
-    const { data, error } = await rdb
-      .from('report')
-      .update({
-        lock: 0,
-        inviteCode: inviteCode
-      })
-      .eq('reportId', reportId);
-    
-    if (error) {
-      console.error('解锁报告失败:', error);
-      throw error;
-    }
-    
-    return data;
-  } catch (err) {
-    console.error('解锁报告失败:', err);
-    throw err;
-  }
+  return result;
 }
 
 // 缓存配置
-const CACHE_DURATION = 300 * 1000; // 5分钟
+const CACHE_DURATION = 5 * 1000; // 5s
 const cache = new Map();
 
 /**
@@ -99,8 +62,9 @@ function setCachedData(cacheKey, data) {
 
 /**
  * 获取报告详情
+ * @param {boolean} skipCache - 是否跳过缓存（用于解锁后重新加载）
  */
-export async function getReportDetail(rdb, reportId) {
+export async function getReportDetail(rdb, reportId, skipCache = false) {
   if (!reportId) {
     console.warn('reportId 为空，无法获取报告内容');
     return null;
@@ -113,10 +77,15 @@ export async function getReportDetail(rdb, reportId) {
   
   // 检查缓存
   const cacheKey = getCacheKey(rdb, 'report_detail', { reportId });
-  const cached = getCachedData(cacheKey);
-  if (cached !== null) {
-    console.log('[getReportDetail] 使用缓存数据');
-    return cached;
+  if (!skipCache) {
+    const cached = getCachedData(cacheKey);
+    if (cached !== null) {
+      console.log('[getReportDetail] 使用缓存数据');
+      return cached;
+    }
+  } else {
+    // 跳过缓存时，清除旧缓存
+    cache.delete(cacheKey);
   }
   
   try {

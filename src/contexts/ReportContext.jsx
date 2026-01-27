@@ -1,11 +1,9 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { getCurrentUsername, isLoggedIn, getCurrentUserId } from '../utils/user';
 import { generateReportTitle, extractReportSubTitle, cleanReportContent, generateReportId } from '../utils/chat';
-import { useRdb, useAuth } from './cloudbaseContext';
+import { useRdb, useAuth, useCloudbaseApp } from './cloudbaseContext';
 import { REPORT_STATUS } from '../constants/reportStatus';
-import { getReportDetail, verifyInviteCode, unlockReport } from '../api/report';
-import InviteCodeDialog from '../components/inviteCodeDialog';
-import InviteLoginDialog from '../components/inviteLoginDialog';
+import { getReportDetail, verifyInviteCode } from '../api/report';
 
 const ReportContext = createContext(null);
 
@@ -54,6 +52,7 @@ const LOCAL_REPORTS_KEY = 'pendingReports';
 export function ReportProvider({ children }) {
   const rdb = useRdb();
   const auth = useAuth();
+  const cloudbaseApp = useCloudbaseApp();
   const [reportState, setReportState] = useState({
     content: '',         // 报告内容（去除 [Report] 前缀）
     messages: [],        // 对话记录
@@ -64,11 +63,9 @@ export function ReportProvider({ children }) {
     currentMode: null,   // 当前报告的模式
   });
   
-  // 对话框状态
-  const [showInviteCodeDialog, setShowInviteCodeDialog] = useState(false);
-  const [showInviteLoginDialog, setShowInviteLoginDialog] = useState(false);
-  const [isVerifyingInviteCode, setIsVerifyingInviteCode] = useState(false);
-  const [pendingUnlockReportId, setPendingUnlockReportId] = useState(null);
+  // 对话框回调（由 Result.jsx 注册）
+  const onShowInviteCodeDialogRef = useRef(null);
+  const onShowInviteLoginDialogRef = useRef(null);
 
   // 防止重复保存到远端
   const isSavingRef = useRef(false);
@@ -140,6 +137,7 @@ export function ReportProvider({ children }) {
       const username = saveUserInfo ? getCurrentUsername() : null;
       const openId = saveUserInfo ? getCurrentUserId() : null;
       
+
       const subTitle = report.subTitle;
       const reportId = report.reportId;
       
@@ -166,7 +164,7 @@ export function ReportProvider({ children }) {
         insertData._openid = openId;
       }
       
-      const { data, error } = await rdb.from('report').insert(insertData);
+      const { data, error } = await rdb.from('report').upsert(insertData, { onConflict: 'reportId' });
 
       if (error) {
         console.error('报告保存到远端失败:', error);
@@ -351,45 +349,28 @@ export function ReportProvider({ children }) {
     }));
   }, []);
 
-  // 处理邀请码验证
-  const handleInviteCodeSubmit = useCallback(async (inviteCode) => {
-    setIsVerifyingInviteCode(true);
+  // 处理邀请码验证（由 Result.jsx 调用）
+  const handleInviteCodeSubmit = useCallback(async (reportId, inviteCode) => {
     try {
       // 验证邀请码
-      await verifyInviteCode(rdb, inviteCode);
-      
-      // 解锁报告
-      const reportId = pendingUnlockReportId || reportState.currentReportId;
-      if (reportId) {
-        await unlockReport(rdb, reportId, inviteCode);
-        console.log('报告已解锁:', reportId);
+      const response = await verifyInviteCode(cloudbaseApp, inviteCode, reportId);
+      const result = response.result;
+      if (result.retcode !== 0) {
+        throw new Error(result.message);
       }
-      
-      setShowInviteCodeDialog(false);
-      setPendingUnlockReportId(null);
-      
+
       // 解锁后，如果未登录，弹出登录对话框
       if (!isLoggedIn()) {
-        const returnUrl = window.location.hash.replace('#', '');
-        setShowInviteLoginDialog(true);
-      } else {
-        // 如果已登录，更新报告的用户信息
-        const username = getCurrentUsername();
-        const openId = getCurrentUserId();
-        if (reportId && username && openId) {
-          await rdb
-            .from('report')
-            .update({ username, _openid: openId })
-            .eq('reportId', reportId);
+        if (onShowInviteLoginDialogRef.current) {
+          onShowInviteLoginDialogRef.current();
         }
       }
+      return true;
     } catch (err) {
       console.error('邀请码验证失败:', err);
       throw err;
-    } finally {
-      setIsVerifyingInviteCode(false);
     }
-  }, [rdb, auth, pendingUnlockReportId, reportState.currentReportId]);
+  }, [rdb, auth, cloudbaseApp]);
 
   // 完成报告生成
   const completeReport = useCallback(async () => {
@@ -450,9 +431,10 @@ export function ReportProvider({ children }) {
           localStorage.setItem(LOCAL_REPORTS_KEY, JSON.stringify(updatedReports));
           console.log('报告已同步到远端 (completed, lock=1)');
           
-          // 提示输入邀请码
-          setPendingUnlockReportId(reportId);
-          setShowInviteCodeDialog(true);
+          // 提示输入邀请码（通过回调通知 Result.jsx）
+          if (onShowInviteCodeDialogRef.current) {
+            onShowInviteCodeDialogRef.current(reportId);
+          }
         }
       } catch (err) {
         console.error('同步到远端失败，保留本地记录:', err);
@@ -484,10 +466,11 @@ export function ReportProvider({ children }) {
           currentReportId: reportId,
         }));
         
-        // 如果报告未解锁，弹出邀请码对话框
+        // 如果报告未解锁，弹出邀请码对话框（通过回调通知 Result.jsx）
         if (reportDetail.isLocked) {
-          setPendingUnlockReportId(reportId);
-          setShowInviteCodeDialog(true);
+          if (onShowInviteCodeDialogRef.current) {
+            onShowInviteCodeDialogRef.current(reportId);
+          }
         }
       }
       
@@ -548,26 +531,16 @@ export function ReportProvider({ children }) {
       saveReportToRemote,
       syncLocalReportsToRemote,
       checkLoginAndSync, // 供登录/注册成功后调用
+      handleInviteCodeSubmit, // 邀请码验证处理函数
+      // 注册对话框显示回调（由 Result.jsx 调用）
+      registerInviteCodeDialog: (callback) => {
+        onShowInviteCodeDialogRef.current = callback;
+      },
+      registerInviteLoginDialog: (callback) => {
+        onShowInviteLoginDialogRef.current = callback;
+      },
     }}>
       {children}
-      
-      {/* 邀请码对话框 */}
-      <InviteCodeDialog
-        isOpen={showInviteCodeDialog}
-        onClose={() => {
-          setShowInviteCodeDialog(false);
-          setPendingUnlockReportId(null);
-        }}
-        onSubmit={handleInviteCodeSubmit}
-        isLoading={isVerifyingInviteCode}
-      />
-      
-      {/* 邀请登录对话框 */}
-      <InviteLoginDialog
-        isOpen={showInviteLoginDialog}
-        onClose={() => setShowInviteLoginDialog(false)}
-        returnUrl={window.location.hash.replace('#', '')}
-      />
     </ReportContext.Provider>
   );
 }

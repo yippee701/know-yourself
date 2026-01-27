@@ -8,6 +8,7 @@ const CloudbaseContext = createContext(null);
  * Cloudbase Provider - 提供全局的 cloudbase auth 和 db 实例
  */
 export function CloudbaseProvider({ children }) {
+  const [cloudbaseApp, setCloudbaseApp] = useState(null);
   const [auth, setAuth] = useState(null);
   const [db, setDb] = useState(null);
   const [rdb, setRdb] = useState(null);
@@ -18,6 +19,9 @@ export function CloudbaseProvider({ children }) {
       env: 'inner-book-0gdweqyu8ab70e46',
       region: 'ap-shanghai',
     });
+
+    const cloudbaseAppInstance = cloudApp;
+    setCloudbaseApp(cloudbaseAppInstance);
 
     // 获取 auth 实例
     const authInstance = cloudApp.auth();
@@ -38,6 +42,7 @@ export function CloudbaseProvider({ children }) {
 
     return () => {
       // 清理（如果需要）
+      setCloudbaseApp(null);
       setAuth(null);
       setDb(null);
       setRdb(null);
@@ -45,7 +50,7 @@ export function CloudbaseProvider({ children }) {
   }, []);
 
   return (
-    <CloudbaseContext.Provider value={{ auth, db, rdb }}>
+    <CloudbaseContext.Provider value={{ cloudbaseApp, auth, db, rdb }}>
       {children}
     </CloudbaseContext.Provider>
   );
@@ -58,6 +63,15 @@ export function CloudbaseProvider({ children }) {
 export function useCloudbase() {
   const context = useContext(CloudbaseContext);
   return context;
+}
+
+/**
+ * 使用 CloudbaseApp 的 Hook
+ * @returns {object|null} cloudbase CloudbaseApp 实例
+ */
+export function useCloudbaseApp() {
+  const context = useContext(CloudbaseContext);
+  return context?.cloudbaseApp || null;
 }
 
 /**

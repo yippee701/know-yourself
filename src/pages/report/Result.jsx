@@ -1,12 +1,15 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useEffect, useCallback, useMemo, useState } from 'react';
+import { useEffect, useCallback, useMemo, useState, useRef } from 'react';
 import XMarkdown from '@ant-design/x-markdown';
 import { useReport } from '../../contexts/ReportContext';
 import { generateReportTitle} from '../../utils/chat';
 import { getModeFromSearchParams } from '../../constants/modes';
 import { useToast } from '../../components/Toast';
 import ShareDialog from '../share/shareDialog';
+import InviteCodeDialog from '../../components/inviteCodeDialog';
+import InviteLoginDialog from '../../components/inviteLoginDialog';
 import { useRdb } from '../../contexts/cloudbaseContext';
+import { getReportDetail as getReportDetailApi } from '../../api/report';
 
 // ========== 子组件 ==========
 
@@ -382,7 +385,15 @@ function LoginOverlay({ onLogin, registerUrl }) {
 export default function Result() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { getReportDetail, content, subTitle, isLoggedIn } = useReport();
+  const { 
+    getReportDetail, 
+    content, 
+    subTitle, 
+    isLoggedIn: reportIsLoggedIn,
+    handleInviteCodeSubmit,
+    registerInviteCodeDialog,
+    registerInviteLoginDialog,
+  } = useReport();
   const rdb = useRdb();
   const [displayContent, setDisplayContent] = useState('');
   const { message } = useToast();
@@ -390,8 +401,59 @@ export default function Result() {
   const [shareUrl, setShareUrl] = useState('');
   const [isLoadingReport, setIsLoadingReport] = useState(true);
   
+  // 对话框状态
+  const [showInviteCodeDialog, setShowInviteCodeDialog] = useState(false);
+  const [showInviteLoginDialog, setShowInviteLoginDialog] = useState(false);
+  const [isVerifyingInviteCode, setIsVerifyingInviteCode] = useState(false);
+  const [pendingUnlockReportId, setPendingUnlockReportId] = useState(null);
+  
   // 从 URL 参数获取模式
   const mode = useMemo(() => getModeFromSearchParams(searchParams), [searchParams]);
+  
+  // 注册对话框回调
+  useEffect(() => {
+    if (registerInviteCodeDialog) {
+      registerInviteCodeDialog((reportId) => {
+        setPendingUnlockReportId(reportId);
+        setShowInviteCodeDialog(true);
+      });
+    }
+    if (registerInviteLoginDialog) {
+      registerInviteLoginDialog(() => {
+        setShowInviteLoginDialog(true);
+      });
+    }
+  }, [registerInviteCodeDialog, registerInviteLoginDialog]);
+  
+  // 处理邀请码提交
+  const handleInviteCodeSubmitWrapper = useCallback(async (inviteCode) => {
+    if (!pendingUnlockReportId) {
+      message.warning('报告 ID 不存在');
+      return;
+    }
+    
+    setIsVerifyingInviteCode(true);
+    try {
+      await handleInviteCodeSubmit(pendingUnlockReportId, inviteCode);
+      setShowInviteCodeDialog(false);
+      const unlockedReportId = pendingUnlockReportId;
+      setPendingUnlockReportId(null);
+      message.success('邀请码验证成功，报告已解锁');
+      
+      // 重新加载报告内容（跳过缓存）
+      if (rdb) {
+        const reportDetail = await getReportDetailApi(rdb, unlockedReportId, true);
+        if (reportDetail) {
+          setDisplayContent(reportDetail.content || '');
+        }
+      }
+    } catch (err) {
+      message.error(err.message || '邀请码验证失败');
+      throw err;
+    } finally {
+      setIsVerifyingInviteCode(false);
+    }
+  }, [pendingUnlockReportId, handleInviteCodeSubmit, getReportDetail, message]);
   
   // 跳转到登录页（带返回地址）
   const handleGoToLogin = useCallback(() => {
@@ -429,11 +491,11 @@ export default function Result() {
     const reportId = currentSearchParams.get('reportId');
 
     // 情况1：从 ReportLoading 跳转过来 或者已经拉取过一次了
-    if (content) {
-      setDisplayContent(content);
-      setIsLoadingReport(false);
-      return;
-    }
+    // if (content && re) {
+    //   setDisplayContent(content);
+    //   setIsLoadingReport(false);
+    //   return;
+    // }
 
     // 情况2：从历史记录点击进来，需要从数据库拉取
     // 等待 rdb 和 getReportDetail 初始化完成
@@ -458,6 +520,10 @@ export default function Result() {
         }
         // 从数据库获取的 content 已经移除了 h1 标题，直接使用
         setDisplayContent(reportDetail.content || '');
+
+        if (reportDetail.lock === 1) {
+          setShowInviteCodeDialog(true);
+        }
       } catch (err) {
         console.error('加载报告失败:', err);
         message.error('加载报告失败，请稍后重试');
@@ -518,7 +584,7 @@ export default function Result() {
       </div>
 
       {/* 未登录蒙层 */}
-      {!isLoggedIn && (
+      {!reportIsLoggedIn && (
         <LoginOverlay 
           onLogin={handleGoToLogin} 
           registerUrl={`/register?returnUrl=${encodeURIComponent(`/profile`)}`}
@@ -533,6 +599,24 @@ export default function Result() {
         isOpen={isShareDialogOpen}
         onClose={handleCloseShareDialog}
         shareUrl={shareUrl}
+      />
+      
+      {/* 邀请码对话框 */}
+      <InviteCodeDialog
+        isOpen={showInviteCodeDialog}
+        onClose={() => {
+          setShowInviteCodeDialog(false);
+          setPendingUnlockReportId(null);
+        }}
+        onSubmit={handleInviteCodeSubmitWrapper}
+        isLoading={isVerifyingInviteCode}
+      />
+      
+      {/* 邀请登录对话框 */}
+      <InviteLoginDialog
+        isOpen={showInviteLoginDialog}
+        onClose={() => setShowInviteLoginDialog(false)}
+        returnUrl={window.location.hash.replace('#', '')}
       />
     </div>
   );

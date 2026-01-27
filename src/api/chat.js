@@ -176,7 +176,6 @@ export async function sendMessage(messages, onStream = null, mode = CHAT_MODES.D
 
   try {
     console.log(`[Proxy Mode] 通过后端代理调用 (${mode})`);
-    // TODO: 代理模式也需要传递 mode 参数给后端
     return await sendMessageViaProxy(messages, onStream, mode);
   } catch (error) {
     console.error('API 调用失败:', error);
