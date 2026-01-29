@@ -6,11 +6,6 @@ import { REPORT_STATUS } from '../constants/reportStatus';
 import { getReportDetail, verifyInviteCode } from '../api/report';
 import { useToast } from '../components/Toast';
 
-const ReportContext = createContext(null);
-
-// localStorage key
-const LOCAL_REPORTS_KEY = 'pendingReports';
-
 /*
 1. 开始对话
    └─  createReport() → 保存到本地，并且同步到远端，report.lock=1 report.status=pending
@@ -48,7 +43,36 @@ const LOCAL_REPORTS_KEY = 'pendingReports';
       └─ 解锁后可以查看报告
         └─ 如果未登录，则弹出 inviteLoginDialog 组件，邀请登录
         └─ 如果已登录 → 保存一下 username 和 _openid
+6. 本地报告管理
+   └─ 本地保存的 Completed 报告，上限只保存 3 个，超出使用 LRU 算法删除最早的报告
+   └─ 本地保存的 Pending 报告， 同一个 mode 上限只保存 1 个，超出使用 LRU 算法删除最早的报告
 */
+
+const ReportContext = createContext(null);
+
+// localStorage keys
+const LOCAL_REPORTS_KEY = 'pendingReports';
+const DISCOVER_SELF_FIRST_3_ANSWERS_KEY = 'discoverSelfFirst3Answers';
+
+/** 本地报告 LRU 裁剪：Completed 最多 3 个，Pending 同一 mode 最多 1 个 */
+function trimLocalReports(reports) {
+  const completed = reports.filter(r => r.status === 'completed');
+  const pending = reports.filter(r => r.status === 'pending');
+  // Completed: 按 createdAt 降序，保留最新 3 个
+  const completedKeep = [...completed]
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 3);
+  // Pending: 每个 mode 保留最新 1 个（按 createdAt 取最新）
+  const pendingByMode = {};
+  pending.forEach(r => {
+    const m = r.mode || 'unknown';
+    if (!pendingByMode[m] || new Date(r.createdAt) > new Date(pendingByMode[m].createdAt)) {
+      pendingByMode[m] = r;
+    }
+  });
+  const pendingKeep = Object.values(pendingByMode);
+  return [...completedKeep, ...pendingKeep];
+}
 
 export function ReportProvider({ children }) {
   const rdb = useRdb();
@@ -80,51 +104,6 @@ export function ReportProvider({ children }) {
   useEffect(() => {
     reportStateRef.current = reportState;
   }, [reportState]);
-
-  // const updateUserRemainingReport = useCallback(async () => {
-  //   try {
-  //     if (!rdb) {
-  //       return;
-  //     }
-  //     const username = getCurrentUsername();
-  //     // 先查询当前用户的剩余报告数
-  //     const { data: userData, error: queryError } = await rdb
-  //       .from('user_info')
-  //       .select('remainingReport')
-  //       .eq('username', username)
-  //       .single();
-
-  //     if (queryError) {
-  //       console.error('查询用户信息失败:', queryError);
-  //       throw queryError;
-  //     }
-
-  //     if (!userData) {
-  //       console.warn('用户信息不存在');
-  //       return;
-  //     }
-
-  //     // 将剩余报告数减1，但不能小于0
-  //     const currentRemaining = userData.remainingReport || 0;
-  //     const newRemaining = Math.max(0, currentRemaining - 1);
-
-  //     // 更新用户剩余报告数
-  //     const { error: updateError } = await rdb
-  //       .from('user_info')
-  //       .update({ remainingReport: newRemaining })
-  //       .eq('username', username);
-
-  //     if (updateError) {
-  //       console.error('更新用户剩余报告失败:', updateError);
-  //       throw updateError;
-  //     }
-
-  //     console.log(`用户剩余报告数已更新: ${currentRemaining} -> ${newRemaining}`);
-  //   } catch (err) {
-  //     console.error('更新用户剩余报告失败:', err);
-  //     throw err;
-  //   }
-  // }, [rdb]);
 
   // 保存报告到远端
   const saveReportToRemote = useCallback(async (report, options = {}) => {
@@ -230,9 +209,10 @@ export function ReportProvider({ children }) {
         console.log('已同步报告:', report.title, '消息数:', report.messages?.length || 0);
       }
       
-      // 只保留未完成的报告在本地
-      localStorage.setItem(LOCAL_REPORTS_KEY, JSON.stringify(pendingReports));
-      console.log('已完成报告同步完成，本地保留未完成报告数:', pendingReports.length);
+      // 只保留未完成的报告在本地（按 LRU 裁剪）
+      const trimmed = trimLocalReports(pendingReports);
+      localStorage.setItem(LOCAL_REPORTS_KEY, JSON.stringify(trimmed));
+      console.log('已完成报告同步完成，本地保留未完成报告数:', trimmed.length);
     } catch (err) {
       console.error('同步本地报告失败:', err);
     }
@@ -248,7 +228,7 @@ export function ReportProvider({ children }) {
     }
   }, [syncLocalReportsToRemote]);
 
-  // 保存报告到本地 localStorage
+  // 保存报告到本地 localStorage（写入前按 LRU 裁剪）
   const saveReportToLocal = useCallback((report) => {
     try {
       const existingReports = JSON.parse(localStorage.getItem(LOCAL_REPORTS_KEY) || '[]');
@@ -258,21 +238,23 @@ export function ReportProvider({ children }) {
       } else {
         existingReports.push(report);
       }
-      localStorage.setItem(LOCAL_REPORTS_KEY, JSON.stringify(existingReports));
+      const trimmed = trimLocalReports(existingReports);
+      localStorage.setItem(LOCAL_REPORTS_KEY, JSON.stringify(trimmed));
       console.log('报告已保存到本地:', report.title);
     } catch (err) {
       console.error('保存到本地失败:', err);
     }
   }, []);
 
-  // 更新本地报告
+  // 更新本地报告（写入前按 LRU 裁剪）
   const updateLocalReport = useCallback((reportId, updates) => {
     try {
       const existingReports = JSON.parse(localStorage.getItem(LOCAL_REPORTS_KEY) || '[]');
       const index = existingReports.findIndex(r => r.reportId === reportId);
       if (index >= 0) {
         existingReports[index] = { ...existingReports[index], ...updates };
-        localStorage.setItem(LOCAL_REPORTS_KEY, JSON.stringify(existingReports));
+        const trimmed = trimLocalReports(existingReports);
+        localStorage.setItem(LOCAL_REPORTS_KEY, JSON.stringify(trimmed));
       } else {
         console.warn('未找到本地报告:', reportId);
       }
@@ -349,13 +331,30 @@ export function ReportProvider({ children }) {
   const updateMessages = useCallback((messages) => {
     setReportState(prev => {
       const newState = { ...prev, messages };
-      
+
       // 同时更新本地存储
       if (prev.currentReportId) {
         updateLocalReport(prev.currentReportId, { messages });
         console.log('对话记录已更新到本地, 消息数:', messages.length);
       }
-      
+
+      // discover-self 模式下，保存第 2、3、4 轮用户答案用于下次推荐（第 1 轮为自动发送的「你好，我准备好了，请开始吧」）
+      if (prev.currentMode === 'discover-self' && Array.isArray(messages)) {
+        const userContents = messages
+          .filter(m => m.role === 'user' && m.content)
+          .map(m => (typeof m.content === 'string' ? m.content : m.content?.text || '').trim())
+          .filter(Boolean);
+        // 第 2、3、4 轮对应索引 1、2、3
+        const round2To4 = userContents.slice(1, 4);
+        if (round2To4.length > 0) {
+          try {
+            localStorage.setItem(DISCOVER_SELF_FIRST_3_ANSWERS_KEY, JSON.stringify(round2To4));
+          } catch (e) {
+            console.warn('保存第 2/3/4 轮答案失败:', e);
+          }
+        }
+      }
+
       return newState;
     });
   }, [updateLocalReport]);
@@ -448,7 +447,7 @@ export function ReportProvider({ children }) {
           
           // 同步成功后，如果已登录，则从本地删除这条记录，如果未登录则暂时保存在本地
           if(loggedIn) {
-            const updatedReports = localReports.filter(r => r.reportId !== reportId);
+            const updatedReports = trimLocalReports(localReports.filter(r => r.reportId !== reportId));
             localStorage.setItem(LOCAL_REPORTS_KEY, JSON.stringify(updatedReports));
           }
           console.log('报告已同步到远端 (completed, lock=1)');
@@ -503,6 +502,18 @@ export function ReportProvider({ children }) {
     }
   }, [rdb]);
 
+  // 获取 discover-self 模式下保存的前三轮用户答案（用于推荐）
+  const getDiscoverSelfFirst3Answers = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(DISCOVER_SELF_FIRST_3_ANSWERS_KEY);
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr.filter(Boolean).slice(0, 3) : [];
+    } catch (e) {
+      return [];
+    }
+  }, []);
+
   // 获取指定模式下的未完成报告
   const getPendingReport = useCallback((mode) => {
     try {
@@ -547,6 +558,7 @@ export function ReportProvider({ children }) {
       updateReportContent,
       completeReport,
       getPendingReport,
+      getDiscoverSelfFirst3Answers,
       getReportDetail: getReportDetailWrapper,
       resumeReport,
       saveReportToLocal,
