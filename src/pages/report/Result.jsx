@@ -41,7 +41,7 @@ function BackgroundGlow() {
 function ConversionZone({ onUpgrade, onShare }) {
   return (
     <div 
-      className="absolute bottom-0 left-0 right-0 h-32 flex flex-col items-center justify-end pb-4 z-50"
+      className="absolute bottom-0 left-0 right-0 min-h-32 flex flex-col items-center justify-end pb-4 z-50"
       style={{
         background: 'linear-gradient(to top, #FFFFFF 85%, rgba(255, 255, 255, 0) 100%)',
       }}
@@ -580,6 +580,17 @@ export default function Result() {
       <div className="flex-1 overflow-y-auto pb-[220px] px-3 relative z-10">
         <div className="max-w-md mx-auto py-3">
           <ReportContent content={displayContent} subTitle={subTitle} />
+          {/* 查看完整对话过程 */}
+          {(
+            <div className="mt-4 mb-2 flex items-center gap-2 w-full justify-center">
+              <Link
+                to={`/chat-history?reportId=${searchParams.get('reportId')}`}
+                className="text-sm text-gray-500 hover:text-gray-700 underline"
+              >
+                查看完整对话过程
+              </Link>
+            </div>
+          )}          
         </div>
       </div>
 
@@ -592,7 +603,10 @@ export default function Result() {
       )}
 
       {/* 底部转化区 */}
-      <ConversionZone onUpgrade={handleUpgrade} onShare={handleShare} />
+      <ConversionZone
+        onUpgrade={handleUpgrade}
+        onShare={handleShare}
+      />
 
       {/* 分享弹窗 */}
       <ShareDialog 

@@ -75,7 +75,7 @@ function getLocalPendingReport(mode) {
 export default function Chat() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
+
   // 根据 URL 参数确定聊天模式（提前计算，不使用 useMemo）
   const chatMode = getModeFromSearchParams(searchParams);
 
@@ -95,10 +95,7 @@ export default function Chat() {
   
   // 页面加载时检查对话次数
   useEffect(() => {
-    // 等待用户信息加载完成
     if (isProfileLoading) return;
-    
-    // 检查是否可以开始对话
     if (!checkCanStartChat(isLoggedIn, userExtraInfo)) {
       setShowNoQuotaDialog(true);
     }
@@ -198,15 +195,13 @@ export default function Chat() {
 
   // 对话记录变化时同步到 ReportContext（只在消息完成时更新，不在流式输出过程中更新）
   useEffect(() => {
-    if (hasStarted && messages.length > 0) {
-      // 检查最后一条消息是否还在 loading 状态
-      const lastMessage = messages[messages.length - 1];
-      const isLastMessageLoading = lastMessage?.status === 'loading';
-      
-      // 只有在最后一条消息不是 loading 状态时才更新本地存储
-      if (!isLastMessageLoading) {
-        updateMessages(messages);
-      }
+    if (!hasStarted || messages.length === 0) return;
+    // 检查最后一条消息是否还在 loading 状态
+    const lastMessage = messages[messages.length - 1];
+    const isLastMessageLoading = lastMessage?.status === 'loading';
+
+    if (!isLastMessageLoading) {
+      updateMessages(messages);
     }
   }, [hasStarted, messages, updateMessages]);
 

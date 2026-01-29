@@ -1,6 +1,7 @@
 import { HashRouter as Router, Routes, Route } from 'react-router-dom'
 import Homepage from './pages/Homepage'
 import Chat from './pages/chat/Chat'
+import ChatHistory from './pages/chat/ChatHistory'
 import ProfilePage from './pages/settings/profile/profile'
 import LoginPage from './pages/settings/user/login'
 import RegisterPage from './pages/settings/user/register'
@@ -21,6 +22,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Homepage />} />
               <Route path="/chat" element={<Chat />} />
+              <Route path="/chat-history" element={<ChatHistory />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />

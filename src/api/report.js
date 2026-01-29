@@ -125,3 +125,62 @@ export async function getReportDetail(rdb, reportId, skipCache = false) {
     throw err;
   }
 }
+
+/**
+ * 保存对话记录
+ * @param {string} reportId - 报告 ID
+ * @param {array} messages - 对话记录
+ */
+export async function saveMessages(db, reportId, messages) {
+  if (!db) {
+    console.warn('db 未初始化，无法保存对话记录');
+    return;
+  }
+  
+  if (!reportId) {
+    console.warn('reportId 为空，无法保存对话记录');
+    return;
+  }
+
+  const { res, error } = await db.collection('message').add({
+      reportId,
+      messages,
+    });
+  if (error) {
+    throw error;
+  }
+  return res;
+}
+
+/**
+ * 获取对话记录
+ * @param {string} reportId - 报告 ID
+ * @return {array} messages - 对话记录
+ */
+export async function getMessages(db, reportId) {
+  if (!db) {
+    console.warn('db 未初始化，无法获取对话记录');
+    return;
+  }
+  
+  if (!reportId) {
+    console.warn('reportId 为空，无法获取对话记录');
+    return;
+  }
+  return new Promise((resolve, reject) => {
+    db.collection('message').where({
+      reportId,
+    }).get((res, data) => {
+      if(res !== 0 || !data) {
+        reject(new Error('获取对话记录失败'));
+        return;
+      }
+      try {
+        const messages = data.data?.[0]?.messages || [];
+        resolve(JSON.parse(messages));
+      } catch (err) {
+        reject(err);
+      }
+    })
+  });
+}

@@ -1,9 +1,9 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { getCurrentUsername, isLoggedIn, getCurrentUserId } from '../utils/user';
 import { generateReportTitle, extractReportSubTitle, cleanReportContent, generateReportId } from '../utils/chat';
-import { useRdb, useAuth, useCloudbaseApp } from './cloudbaseContext';
+import { useRdb, useAuth, useCloudbaseApp, useDb } from './cloudbaseContext';
 import { REPORT_STATUS } from '../constants/reportStatus';
-import { getReportDetail, verifyInviteCode } from '../api/report';
+import { getReportDetail, verifyInviteCode, saveMessages } from '../api/report';
 import { useToast } from '../components/Toast';
 
 /*
@@ -76,6 +76,7 @@ function trimLocalReports(reports) {
 
 export function ReportProvider({ children }) {
   const rdb = useRdb();
+  const db = useDb();
   const auth = useAuth();
   const cloudbaseApp = useCloudbaseApp();
   const { message: toastMessage } = useToast();
@@ -135,7 +136,6 @@ export function ReportProvider({ children }) {
         subTitle: subTitle || '',
         status: status,
         mode: report.mode,
-        messages: JSON.stringify(report.messages || []),
         reportId: reportId,
         lock: lock,
       };
@@ -157,12 +157,19 @@ export function ReportProvider({ children }) {
 
       console.log('报告保存到远端成功:', data, 'status:', status, 'lock:', lock);
 
+      // 对话记录保存到文档型数据库
+      try {
+        await saveMessages(db, reportId, report.messages || []);
+      } catch (err) {
+        console.error('对话记录保存到文档型数据库失败:', err);
+      }
+
       return { data, reportId };
     } catch (err) {
       console.error('报告保存到远端失败:', err);
       throw err;
     }
-  }, [rdb, auth]);
+  }, [rdb, db, auth]);
 
   // 同步本地报告到远端（只同步已完成的报告，pending 状态的保留在本地）
   const syncLocalReportsToRemote = useCallback(async () => {
