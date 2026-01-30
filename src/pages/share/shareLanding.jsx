@@ -4,6 +4,8 @@ import XMarkdown from '@ant-design/x-markdown';
 import { useRdb } from '../../contexts/cloudbaseContext';
 import { getModeLabel } from '../../constants/modes';
 import { BackgroundBlobs } from '../../components/reportBackground';
+import { ExclamationCircleOutlined } from '@ant-design/icons';
+import { getReportDetail } from '../../api/report';
 
 // ========== 分享者信息卡片 ==========
 function SharerCard({ username }) {
@@ -71,9 +73,9 @@ function ContentCard({ subTitle, content, modeLabel }) {
       </div>
 
       {/* Description */}
-      <p className="text-gray-600 text-sm leading-relaxed text-justify">
+      <div className="text-gray-600 text-sm leading-relaxed text-justify">
         <XMarkdown content={content} />
-      </p>
+      </div>
     </div>
   );
 }
@@ -136,6 +138,7 @@ export default function ShareLanding() {
   
   const [loading, setLoading] = useState(true);
   const [report, setReport] = useState(null);
+  const [error, setError] = useState(null);
 
   const modeLabel = useMemo(() => getModeLabel(mode), [mode]);
 
@@ -145,22 +148,27 @@ export default function ShareLanding() {
       setLoading(false);
       return;
     }
+    if (!rdb) {
+      setLoading(false);
+      return;
+    }
 
     const fetchReport = async () => {
-      const { data, error } = await rdb.from('report').select().eq('id', reportId);
-      if (error) {
+      try {
+        const reportDetail = await getReportDetail(rdb, reportId, true);
+        if (!reportDetail) {
+          setError('报告不存在或已被删除');
+          setLoading(false);
+          return;
+        }
+        setReport(reportDetail);
+        setLoading(false);
+      } catch (error) {
         console.error('获取报告失败:', error);
         setError('报告不存在或已被删除');
         setLoading(false);
         return;
       }
-      if (data.length === 0) {
-        setError('报告不存在或已被删除');
-        setLoading(false);
-        return;
-      }
-      setReport(data[0]);
-      setLoading(false); 
     };
 
     fetchReport();
@@ -172,6 +180,16 @@ export default function ShareLanding() {
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-500 rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-500">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="h-screen-safe bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <ExclamationCircleOutlined className="text-purple-500 text-2xl mx-auto mb-4" />
+          <p className="text-gray-500">{error}</p>
         </div>
       </div>
     );
