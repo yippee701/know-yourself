@@ -12,9 +12,35 @@
   <body>
     <div id="root"></div>
     <script>
-      document.addEventListener('touchmove', function(event) {
-        event.preventDefault();
-      }, { passive: false });
+      // 禁止下拉刷新核心代码
+      (function() {
+        let lastY = 0;
+        const content = document.querySelector('#root');
+  
+        // 阻止下拉刷新
+        content.addEventListener('touchstart', function(e) {
+          lastY = e.targetTouches[0].clientY;
+        }, { passive: true });
+  
+        content.addEventListener('touchmove', function(e) {
+          const currentY = e.targetTouches[0].clientY;
+          const scrollTop = this.scrollTop;
+  
+          // 当滚动到顶部且继续下拉时，阻止默认行为
+          if (scrollTop <= 0 && currentY > lastY) {
+            e.preventDefault();
+          }
+          lastY = currentY;
+        }, { passive: false });
+  
+        // 兼容部分安卓浏览器
+        document.addEventListener('touchmove', function(e) {
+          const scrollTop = content.scrollTop;
+          if (scrollTop <= 0) {
+            e.preventDefault();
+          }
+        }, { passive: false });
+      })();
     </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
