@@ -306,7 +306,7 @@ export default function Chat() {
         style={{ bottom: 0 }}
       >
         <div 
-          className="w-full rounded-full flex items-center px-5 gap-3"
+          className="w-full rounded-4xl flex items-center px-5 gap-3"
           style={{ backgroundColor: '#F3F4F6' }}
         >
           <div className="flex-1">

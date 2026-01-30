@@ -32,6 +32,7 @@ export default function ChatInput({ onSend, isLoading, disabled, suggestionToFil
         loading={isLoading}
         disabled={disabled || isLoading}
         placeholder="输入消息..."
+        autoSize={{ minRows: 1, maxRows: 4 }}
         style={{
           background: 'transparent',
           borderRadius: '9999px',
