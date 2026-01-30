@@ -156,7 +156,7 @@ export default function RegisterPage() {
   // 无法点击注册时展示的校验失败原因（按优先级取第一条）
   const validationHint = useMemo(() => {
     if (canSubmit) return null;
-    if (username.length > 0 && !isValidUsername) return '用户名需 6–25 位字母、以小写字母开头、数字或下划线';
+    if (username.length > 0 && !isValidUsername) return '用户名需 6–25 位字符、并以小写字母开头';
     if (password.length > 0 && !isValidPassword) return '密码至少 6 位';
     if (confirmPassword.length > 0 && !isPasswordMatch) return '两次输入的密码不一致';
     if (phone.length > 0 && !isValidPhone) return '请输入正确的 11 位手机号';
@@ -281,7 +281,7 @@ export default function RegisterPage() {
             onBlur={onFieldBlur}
             placeholder="请输入用户名"
             disabled={loading}
-            hint="6-25位字母、以小写字母开头、数字或下划线"
+            hint="6–25 位字符、并以小写字母开头"
           />
 
           <InputField
