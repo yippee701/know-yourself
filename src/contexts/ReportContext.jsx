@@ -158,10 +158,12 @@ export function ReportProvider({ children }) {
       console.log('报告保存到远端成功:', data, 'status:', status, 'lock:', lock);
 
       // 对话记录保存到文档型数据库
-      try {
-        await saveMessages(db, reportId, report.messages || []);
-      } catch (err) {
-        console.error('对话记录保存到文档型数据库失败:', err);
+      if (report.messages && report.messages.length > 0) {
+        try {
+          await saveMessages(db, reportId, report.messages || []);
+        } catch (err) {
+          console.error('对话记录保存到文档型数据库失败:', err);
+        }
       }
 
       return { data, reportId };

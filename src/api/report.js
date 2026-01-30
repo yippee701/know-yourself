@@ -142,14 +142,16 @@ export async function saveMessages(db, reportId, messages) {
     return;
   }
 
-  const { res, error } = await db.collection('message').add({
-      reportId,
-      messages,
-    });
-  if (error) {
-    throw error;
-  }
-  return res;
+  return new Promise((resolve, reject) => db.collection('message').add({
+    reportId,
+    messages,
+  }, (res, data) => {
+    if(res !== 0 || !data) {
+      reject(new Error('保存对话记录失败'));
+      return;
+    }
+    resolve(data);
+  }));
 }
 
 /**
