@@ -84,14 +84,14 @@ function UserHeader({ user, userExtraInfo }) {
         </div>
         
         {/* 资产卡片 */}
-        <div 
+        {/* <div 
           className="flex justify-between items-center px-3.5 py-2.5 rounded-xl cursor-pointer"
           style={{
             backgroundColor: 'rgba(249, 250, 251, 0.8)',
             border: '1px solid rgba(167, 139, 250, 0.2)',
           }}
         >
-          {/* <span className="text-[13px]" style={{ color: '#374151' }}>
+          <span className="text-[13px]" style={{ color: '#374151' }}>
             剩余深度对话: <strong className="mx-1 text-[15px]" style={{ color: '#8B5CF6' }}>{userExtraInfo.remainingReport}</strong> 次
           </span>
           <span className="text-xs flex items-center" style={{ color: '#8B5CF6' }}>
@@ -99,8 +99,8 @@ function UserHeader({ user, userExtraInfo }) {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
-          </span> */}
-        </div>
+          </span>
+        </div> */}
       </div>
     </div>
   );
