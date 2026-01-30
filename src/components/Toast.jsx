@@ -37,16 +37,16 @@ function ToastItem({ message, type = 'info', onClose }) {
 
   return (
     <div
-      className={`${bgColors[type]} text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-toast-in backdrop-blur-sm`}
+      className={`${bgColors[type]} text-white px-6 py-3 min-w-[280px] max-w-[420px] rounded-xl shadow-lg flex items-center justify-center gap-3 animate-toast-in backdrop-blur-sm relative`}
       style={{
         boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
       }}
     >
-      {icons[type]}
-      <span className="text-sm font-medium">{message}</span>
+      {/* {icons[type]} */}
+      <span className="text-sm font-medium w-full text-center">{message}</span>
       <button
         onClick={onClose}
-        className="ml-2 opacity-70 hover:opacity-100 transition-opacity"
+        className="absolute top-3 right-3 opacity-70 hover:opacity-100 transition-opacity"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
