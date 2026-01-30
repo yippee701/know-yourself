@@ -26,7 +26,7 @@ import { useToast } from '../components/Toast';
         └─ 如果有效，则 report.lock=0 report.inviteCode=邀请码 (会在服务端服务实现解锁逻辑)
         └─ 如果无效，则提示邀请码无效
       └─ 解锁后可以查看报告
-        └─ 如果未登录，则弹出 inviteLoginDialog 组件，邀请登录
+        └─ 如果未登录，在滚动到最底部时弹出 inviteLoginDialog 组件，邀请登录
         └─ 如果已登录 → 保存一下 username 和 _openid
 
 4. 登录后自动同步
@@ -41,7 +41,7 @@ import { useToast } from '../components/Toast';
         └─ 如果有效，则 report.lock=0 report.inviteCode=邀请码 (会在服务端服务实现解锁逻辑)
         └─ 如果无效，则提示邀请码无效
       └─ 解锁后可以查看报告
-        └─ 如果未登录，则弹出 inviteLoginDialog 组件，邀请登录
+        └─ 如果未登录，在滚动到最底部时弹出 inviteLoginDialog 组件，邀请登录
         └─ 如果已登录 → 保存一下 username 和 _openid
 6. 本地报告管理
    └─ 本地保存的 Completed 报告，上限只保存 3 个，超出使用 LRU 算法删除最早的报告
@@ -400,12 +400,7 @@ export function ReportProvider({ children }) {
         throw new Error(result.message);
       }
 
-      // 解锁后，如果未登录，弹出登录对话框
-      if (!isLoggedIn()) {
-        if (onShowInviteLoginDialogRef.current) {
-          onShowInviteLoginDialogRef.current();
-        }
-      }
+      // 解锁后未登录不在此处弹窗，由报告页「滚动到底部」时再弹出邀请登录
       return true;
     } catch (err) {
       console.error('邀请码验证失败:', err);

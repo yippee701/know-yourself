@@ -312,74 +312,6 @@ function ReportContent({ content, subTitle }) {
     );
 }
 
-/**
- * 未登录蒙层组件
- */
-function LoginOverlay({ onLogin, registerUrl }) {
-  return (
-    <div 
-      className="absolute inset-0 z-40 flex items-center justify-center"
-      style={{
-        backdropFilter: 'blur(1px)',
-      }}
-    >
-      <div 
-        className="flex flex-col items-center p-8 rounded-2xl mx-6"
-            style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-          border: '1px solid rgba(167, 139, 250, 0.2)',
-            }}
-          >
-        {/* 锁图标 */}
-        <div 
-          className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
-          style={{
-            background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.2), rgba(139, 168, 255, 0.1))',
-          }}
-        >
-          <svg className="w-8 h-8" style={{ color: '#8B5CF6' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-        </div>
-
-        <h3 
-          className="text-lg mb-2"
-          style={{
-            fontFamily: '"Noto Serif SC", serif',
-            fontWeight: 'bold',
-            color: '#1F2937',
-          }}
-        >
-          登录查看完整报告
-        </h3>
-        <p className="text-sm text-center mb-6" style={{ color: '#6B7280', maxWidth: '240px' }}>
-          登录后可以查看完整的分析报告，并保存到您的个人档案
-        </p>
-        
-        <button
-          onClick={onLogin}
-          className="w-full px-8 py-3 rounded-full text-white text-base font-medium transition-all active:scale-[0.98]"
-          style={{
-            backgroundColor: '#1F2937',
-            boxShadow: '0 6px 16px rgba(0, 0, 0, 0.15)',
-          }}
-        >
-          立即登录
-        </button>
-        
-        <Link 
-          to={registerUrl || '/register'} 
-          className="mt-3 text-sm"
-          style={{ color: '#8B5CF6' }}
-      >
-          还没有账号？立即注册
-        </Link>
-      </div>
-    </div>
-  );
-}
-
 // ========== 主组件 ==========
 
 export default function Result() {
@@ -406,7 +338,40 @@ export default function Result() {
   const [showInviteLoginDialog, setShowInviteLoginDialog] = useState(false);
   const [isVerifyingInviteCode, setIsVerifyingInviteCode] = useState(false);
   const [pendingUnlockReportId, setPendingUnlockReportId] = useState(null);
-  
+
+  // 未登录时滚动到底部后弹出邀请登录对话框，关闭后本页不再自动弹出
+  const contentScrollRef = useRef(null);
+  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
+  const [inviteLoginPromptDismissed, setInviteLoginPromptDismissed] = useState(false);
+  const SCROLL_BOTTOM_THRESHOLD = 80;
+
+  const checkScrolledToBottom = useCallback(() => {
+    const el = contentScrollRef.current;
+    if (!el) return;
+    const { scrollTop, clientHeight, scrollHeight } = el;
+    if (scrollTop + clientHeight >= scrollHeight - SCROLL_BOTTOM_THRESHOLD) {
+      setHasScrolledToBottom(true);
+    }
+  }, []);
+
+  const handleContentScroll = useCallback(() => {
+    checkScrolledToBottom();
+  }, [checkScrolledToBottom]);
+
+  // 内容加载后若区域本身不足一屏，视为已到底
+  useEffect(() => {
+    if (!displayContent) return;
+    const t = setTimeout(checkScrolledToBottom, 100);
+    return () => clearTimeout(t);
+  }, [displayContent, checkScrolledToBottom]);
+
+  // 未登录且滚动到底部且未关闭过时，弹出邀请登录对话框
+  useEffect(() => {
+    if (hasScrolledToBottom && !reportIsLoggedIn && !inviteLoginPromptDismissed) {
+      setShowInviteLoginDialog(true);
+    }
+  }, [hasScrolledToBottom, reportIsLoggedIn, inviteLoginPromptDismissed]);
+
   // 从 URL 参数获取模式
   const mode = useMemo(() => getModeFromSearchParams(searchParams), [searchParams]);
   
@@ -439,7 +404,10 @@ export default function Result() {
       const unlockedReportId = pendingUnlockReportId;
       setPendingUnlockReportId(null);
       message.success('邀请码验证成功，报告已解锁');
-      
+      // 未登录时重置「已关闭」标记，使滚动到底部时再弹出邀请登录
+      if (!reportIsLoggedIn) {
+        setInviteLoginPromptDismissed(false);
+      }
       // 重新加载报告内容（跳过缓存）
       if (rdb) {
         const reportDetail = await getReportDetailApi(rdb, unlockedReportId, true);
@@ -453,7 +421,7 @@ export default function Result() {
     } finally {
       setIsVerifyingInviteCode(false);
     }
-  }, [pendingUnlockReportId, handleInviteCodeSubmit, getReportDetail, message]);
+  }, [pendingUnlockReportId, handleInviteCodeSubmit, getReportDetail, message, reportIsLoggedIn]);
   
   // 跳转到登录页（带返回地址）
   const handleGoToLogin = useCallback(() => {
@@ -577,7 +545,11 @@ export default function Result() {
       </header>
 
       {/* 内容区 */}
-      <div className="flex-1 overflow-y-auto pb-[220px] px-3 relative z-10">
+      <div
+        ref={contentScrollRef}
+        onScroll={handleContentScroll}
+        className="flex-1 overflow-y-auto pb-[220px] px-3 relative z-10"
+      >
         <div className="max-w-md mx-auto py-3">
           <ReportContent content={displayContent} subTitle={subTitle} />
           {/* 查看完整对话过程 */}
@@ -593,14 +565,6 @@ export default function Result() {
           )}          
         </div>
       </div>
-
-      {/* 未登录蒙层 */}
-      {!reportIsLoggedIn && (
-        <LoginOverlay 
-          onLogin={handleGoToLogin} 
-          registerUrl={`/register?returnUrl=${encodeURIComponent(`/profile`)}`}
-        />
-      )}
 
       {/* 底部转化区 */}
       <ConversionZone
@@ -626,10 +590,13 @@ export default function Result() {
         isLoading={isVerifyingInviteCode}
       />
       
-      {/* 邀请登录对话框 */}
+      {/* 邀请登录对话框（未登录时仅滚动到底部后弹出） */}
       <InviteLoginDialog
         isOpen={showInviteLoginDialog}
-        onClose={() => setShowInviteLoginDialog(false)}
+        onClose={() => {
+          setShowInviteLoginDialog(false);
+          setInviteLoginPromptDismissed(true);
+        }}
         returnUrl={window.location.hash.replace('#', '')}
       />
     </div>

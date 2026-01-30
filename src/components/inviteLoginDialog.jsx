@@ -28,12 +28,12 @@ export default function InviteLoginDialog({ isOpen, onClose, returnUrl }) {
           
           {/* 标题 */}
           <h3 className="text-lg font-bold text-gray-900 mb-2">
-            登录后查看报告
+            登录后保存报告
           </h3>
           
           {/* 描述 */}
           <p className="text-gray-500 text-sm mb-6 leading-relaxed">
-            登录后可以保存报告到个人主页，随时查看
+            强烈建议注册/登录，可以保存报告到个人主页，随时查看
           </p>
           
           {/* 按钮 */}
